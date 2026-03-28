@@ -134,4 +134,29 @@ class WindModel:
         return np.array([speed*np.cos(ang), speed*np.sin(ang), 0.]) + turb
  
 
+#aero 
+def aero_forces_moments(v_enu, q_att, alt, p:VehicleParams, wind:Optional['WindModel']=None):
+    rho,_,_ = isa_atmosphere(alt)
+    v_wind = wind.wind_enu(alt) if wind else np.zeros(3)
+    v_rel = v_enu - v_wind 
+    V = np.linalg.norm(v_rel)
+    if V < 1e-3:
+        return np.zeros(3), np.zeros(3)
+    
+    q_dyn = 0.5*rho*V**2
+    F_drag = -q_dyn * p.Cd * p.ref_area * (v_rel / V)
+    R_T = quat_to_rotmat(q_att).T 
+    v_body = R_T @ v_rel 
+    Vx, Vy, Vz = v_body 
+
+    # alpha = pitch AoA   = arctan2(Vx, |Vz|)   (xz-plane from nozzle)
+    # beta  = yaw sideslip= arctan2(Vy, |Vz|)   (yz-plane from nozzle)
+    # DD-006b: correct for nozzle-first orientation; Cm_alpha=Cn_beta=-0.2.
+
+    alpha = np.arctan2(Vx, abs(Vz) + 1e-6)
+    beta = np.arctan2(Vy, abs(Vz) + 1e-6)
+    
+    M_pitch = q_dyn * p.ref_area * p.ref_length * p.Cm_alpha * alpha
+    M_yaw   = q_dyn * p.ref_area * p.ref_length * p.Cn_beta  * beta
+    return F_drag, np.array([0., M_pitch, M_yaw])
 
