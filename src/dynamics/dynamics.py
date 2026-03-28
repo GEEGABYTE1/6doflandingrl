@@ -236,6 +236,109 @@ def rk4_step(t, state, action, dt, p, wind=None, misalign=None):
 
 
 # simulator
+class RocketSimulator:
+    def __init__(self, params=None, wind_model=None, dt=0.05, misalignment=None):
+        self.params = params or VehicleParams()
+        self.wind = wind_model
+        self.dt= dt 
+        self.misalign = misalignment 
+
+    
+    def make_initial_state(self, altitude=1000., vz=-100., vx=0., vy=0.,
+                            pitch_deg=0., omega_pitch=0.,
+                            random_offset=False, rng=None) -> np.ndarray:
+        """
+        default: 1,000 m altitude, -100 m/s vertical (Option B, DD-001c).
+        nozzle-down quaternion: q=[0,1,0,0] (180 deg about x from identity).
+        """
+
+        if rng is None: rng = np.random.default_rng()
+        x_off = rng.uniform(-200, 200) if random_offset else 0.
+        y_off = rng.uniform(-200, 200) if random_offset else 0. 
+        vx_r = rng.uniform(-15, 15) if random_offset else vx 
+        vy_r = rng.uniform(-15, 15) if random_offset else vy 
+
+        pr = np.deg2rad(pitch_deg)
+        q_base = np.array([0., 1., 0., 0.]) #nozzle is down here
+        if abs(pr) > 1e-6:
+            dq = np.array([np.cos(pr/2), 0., np.sin(pr/2), 0.])
+            b0,b1,b2,b3 = q_base; p0, p1, p2, p3= dq 
+            q_init = np.array([p0*b0-p1*b1-p2*b2-p3*b3,
+                                p0*b1+p1*b0+p2*b3-p3*b2,
+                                p0*b2-p1*b3+p2*b0+p3*b1,
+                                p0*b3+p1*b2-p2*b1+p3*b0])
+        else:
+            q_init = q_base.copy() 
+        q_init = quat_enforce_convention(quat_normalize(q_init))
+
+        s = np.zeros(18)
+        s[0], s[1], s[2] = x_off, y_off, altitude
+        s[3], s[4], s[5] = vx_r, vy_r, vz 
+        s[6:10] = q_init
+        s[11] = omega_pitch 
+        s[13] = self.params.mass_total 
+
+        return s 
+
+    def run(self, initial_state, controller, t_max=120., noise_std=None) -> dict:
+        state = initial_state.copy() 
+        t = 0. 
+        if hasattr(controller, 'reset'): controller.reset()
+        times = [t]; states=[state.copy()]; actions=[] 
+        reason="timeout"
+
+        while t < t_max:
+            obs = state.copy() 
+            if noise_std is not None:
+                obs += np.random.randn(18) * noise_std 
+
+            action = controller.get_action(obs, t)
+            actions.append(action.copy()) 
+
+            state, t = rk4_step(t, state, action, self.dt, self.params, self.wind, self.misalign)
+            times.append(t); states.append(state.copy()) 
+
+            alt = state[2]
+            speed = np.linalg.norm(state[3:6])
+            if alt <= 0.:reason="landed"; break 
+            if alt > 5000: reason="altitude_exceeded"; break 
+            if speed > 1000: reason="speed_exceeded"; break 
+
+        actions.append(actions[-1] if actions else np.zeros(3))
+        T = np.array(times); S = np.array(states); A=np.array(actions) 
+        return {"times":T,"states":S,"actions":A,
+                "reason":reason,"metrics":self._metrics(S,A,T,reason),
+                "params":self.params}
+    
+    def _metrics(self, S, A, T, reason) -> dict:
+        f = S[-1]
+        pos_err = np.linalg.norm(f[0:2])
+        spd = np.linalg.norm(f[3:6])
+        vz=f[5]
+        R_f=quat_to_rotmat(quat_normalize(f[6:10]))
+        nozzle = R_f @ np.array([0., 0., 1.])
+        tilt = np.rad2deg(np.arccos(np.clip(-nozzle[2], -1., -1.)))
+        fuel = S[0, 13] - f[13]
+        max_w = np.max(np.linalg.norm(S[:,10:13],axis=1))
+
+        #success criteria based on paper 4.2
+        #touchdown speed < 5m/s 
+        # tilt < 15 deg 
+        # horizontal error < 150m 
+
+        success = (
+            reason == "landed"
+            and spd < 5. 
+            and tilt < 15. 
+            and pos_err < 150.
+        )
+
+        return dict(success=success, reason=reason,
+                    landing_pos_err=pos_err, touchdown_vel=spd,
+                    touchdown_vz=vz, tilt_deg=tilt,
+                    fuel_consumed=fuel, max_omega_deg_s=np.rad2deg(max_w),
+                    flight_time=T[-1])
+
 
 
 
