@@ -160,3 +160,32 @@ def aero_forces_moments(v_enu, q_att, alt, p:VehicleParams, wind:Optional['WindM
     M_yaw   = q_dyn * p.ref_area * p.ref_length * p.Cn_beta  * beta
     return F_drag, np.array([0., M_pitch, M_yaw])
 
+def thrust_force_moment(action, mass, p:VehicleParams, misalign:Optional[np.ndarray]=None):
+    """
+    TVC model (DD-005): 
+        T_body = T·[sin delta*p cos delta*y,  sin delta*y,  −cos delta*p cos delta*y]
+         M_tvc  = r_nozzle x T_body,   r_nozzle = [0,0,L/2]
+    """
+    g0      = 9.80665
+    tau     = np.clip(action[0], p.throttle_min, p.throttle_max)
+    dp      = np.clip(action[1], -p.tvc_max, p.tvc_max)
+    dy      = np.clip(action[2], -p.tvc_max, p.tvc_max)
+    if misalign is not None:
+        dp += misalign[0]; dy += misalign[1]
+
+    
+    T_mag = tau * p.thrust_max 
+    F_body = T_mag * np.array([
+        np.sin(dp)*np.cos(dy),
+        np.sin(dy),
+        -np.cos(dp)*np.cos(dy)
+    ])
+
+    r_noz = np.array([0.,0.,p.length/2.])
+    M_tvc = np.cross(r_noz, F_body)
+    mdot = -T_mag / (p.Isp * g0)
+    return F_body, M_tvc, mdot 
+
+
+
+
