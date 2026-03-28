@@ -111,5 +111,27 @@ def quat_kinematics(q, omega):
     return 0.5 * Xi @ omega
 
 
+# wind model
+@dataclass 
+class WindModel:
+    """ 
+    power-law wind shear + gaussian turbulence (DD-007)
+    """
+    V_ref: float = 0.0
+    h_ref: float = 10.0
+    alpha_shear: float = 0.143
+    direction_deg: float = 0.0
+    turbulence_intensity: float = 0.10
+    rng: np.random.Generator = field(
+        default_factory=lambda: np.random.default_rng())
+
+    def wind_enu(self, alt: float) -> np.ndarray:
+        h     = max(float(alt), 0.1)
+        speed = self.V_ref * (h/self.h_ref)**self.alpha_shear
+        turb  = self.rng.normal(0, speed*self.turbulence_intensity, 3)
+        turb[2] = 0.
+        ang   = np.deg2rad(self.direction_deg)
+        return np.array([speed*np.cos(ang), speed*np.sin(ang), 0.]) + turb
+ 
 
 
