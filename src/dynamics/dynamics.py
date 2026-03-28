@@ -220,6 +220,23 @@ def equations_of_motion(t, state, action, p:VehicleParams, wind=None, misalign=N
     return dxdt
 
 
+#Rk4 integrator 
+
+def rk4_step(t, state, action, dt, p, wind=None, misalign=None):
+    def f(t_, s_): return equations_of_motion(t_, s_, action, p, wind, misalign)
+    k1 = f(t, state)
+    k2 = f(t+dt/2, state+dt/2*k1)
+    k3 = f(t+dt/2, state+dt/2*k2)
+    k4 = f(t+dt, state+dt*k3)
+    
+    ns = state + (dt/6.)*(k1+2*k2+2*k3+k4)
+    ns[6:10] = quat_enforce_convention(quat_normalize(ns[6:10]))
+    ns[13]   = max(ns[13], p.mass_dry)
+    return ns, t+dt
+
+
+# simulator
+
 
 
 
