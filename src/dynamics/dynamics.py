@@ -186,6 +186,40 @@ def thrust_force_moment(action, mass, p:VehicleParams, misalign:Optional[np.ndar
     mdot = -T_mag / (p.Isp * g0)
     return F_body, M_tvc, mdot 
 
+# equations of motion based on paper
+
+def equations_of_motion(t, state, action, p:VehicleParams, wind=None, misalign=None) -> np.ndarray:
+    g0    = 9.80665
+    r     = state[0:3];  v = state[3:6]
+    q     = quat_normalize(state[6:10]);  omega = state[10:13]
+    mass  = max(state[13], p.mass_dry+1.)
+    alt   = r[2]
+
+    R = quat_to_rotmat(q)
+    F_grav = np.array([0., 0., -mass*g0])
+    F_tb, M_tvc, mdot = thrust_force_moment(action, mass, p, misalign)
+    F_thrust = R @ F_tb 
+    F_drag, M_aero = aero_forces_moments(v, q, alt, p, wind)
+
+
+    rdot = v 
+    vdot = (F_thrust + F_drag + F_grav) / mass 
+    I = p.inertia_tensor(mass)
+    I_inv = p.inertia_inv(mass)
+    M_tot = M_tvc + M_aero
+    wdot = I_inv @ (M_tot - np.cross(omega, I@omega))
+    qdot = quat_kinematics(q, omega)
+
+    if mass <= p.mass_dry + 1.:
+        mdot = 0. 
+
+    dxdt = np.zeros_like(state)
+    dxdt[0:3] = rdot; dxdt[3:6] = vdot 
+    dxdt[6:10] = qdot; dxdt[10:13] = wdot 
+    dxdt[13] = mdot 
+    return dxdt
+
+
 
 
 
