@@ -72,3 +72,44 @@ class VehicleParams:
 
     def inertia_inv(self, m: float) -> np.ndarray:
         return np.diag(1.0 / np.diag(self.inertia_tensor(m)))
+    
+
+# ISA Atmosphere --> tropo + lower strat 
+
+
+def isa_atmosphere(alt_m:float) -> Tuple[float, float, float]:
+    T0=288.15; P0=101325.; L=0.0065; g0=9.80665; R=287.05
+    h = float(np.clip(alt_m, 0., 80_000.))
+    if h <= 11_000.:
+        T = T0 - L*h 
+        P = P0*(T/T0)**(g0/(L*R))
+    else:
+        T11 = T0 - L*11_000.; P11 = P0*(T11/T0)**(g0/(L*R))
+        T = T11;  P = P11*np.exp(-g0*(h-11_000.)/(R*T11))
+    rho = P/(R*T)
+    return rho, P, T
+
+# Quaternion Utilities 
+def quat_normalize(q):
+    return q/np.linalg.norm(q) 
+
+def quat_enforce_convention(q):
+    return q if q[0] >= 0 else -q 
+
+def quat_to_rotmat(q) -> np.ndarray: 
+    "R: body -> inertial"
+    q0,q1,q2,q3 = q/np.linalg.norm(q)
+    return np.array([
+        [1-2*(q2**2+q3**2),  2*(q1*q2-q0*q3),   2*(q1*q3+q0*q2)],
+        [2*(q1*q2+q0*q3),    1-2*(q1**2+q3**2),  2*(q2*q3-q0*q1)],
+        [2*(q1*q3-q0*q2),    2*(q2*q3+q0*q1),    1-2*(q1**2+q2**2)]
+    ])
+
+def quat_kinematics(q, omega):
+    q0,q1,q2,q3 = q
+    Xi = np.array([[-q1,-q2,-q3],[q0,-q3,q2],[q3,q0,-q1],[-q2,q1,q0]])
+    return 0.5 * Xi @ omega
+
+
+
+
