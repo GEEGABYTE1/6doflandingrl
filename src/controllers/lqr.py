@@ -1,6 +1,6 @@
 """
 6dof rocket landing option b
-=============================================================
+
 Paper §5.1 — classical Baseline Controller
 
 body-frame convention (q=[0,1,0,0] = nozzle-down base):

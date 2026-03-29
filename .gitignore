@@ -1,1 +1,4 @@
-phases.md
+__pycache__ 
+6dof/
+src/controllers/__pycache__ 
+src/dynamics/__pycache__ 
