@@ -116,4 +116,12 @@ class WindCurriculumCallback(BaseCallback):
                 print(f"\n[Curriculum] step={ts:,}  →  wind={new_wind} m/s")
         
         if ts % 10_000 < self.n_envs:
-            pass 
+            mean_rew = np.mean(self._ep_rewards[-200:]) if self._ep_rewards else 0.
+            suc_rate = np.mean(self._ep_successes[-200:]) if self._ep_successes else 0.
+            wind_now = self.stages[self.current_stage] 
+            self._log_rows.append(dict(
+                timestep = ts. 
+                mean_reward = round(mean_rew, 2),
+                success_rate = round(suc_rate, 4),
+                wind
+            ))
