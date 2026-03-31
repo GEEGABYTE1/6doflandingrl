@@ -123,5 +123,76 @@ class WindCurriculumCallback(BaseCallback):
                 timestep = ts. 
                 mean_reward = round(mean_rew, 2),
                 success_rate = round(suc_rate, 4),
-                wind
+                wind_leve l =wind_now
             ))
+            if self.verbose >= 2:
+                print(f"  ts={ts:>8,}  rew={mean_rew:>8.1f}  "
+                      f"suc={suc_rate:.2%}  wind={wind_now:.0f} m/s")
+        
+        return True # continue training
+    
+
+def _on_training_end(self):
+    if not self._log_rows:
+        return 
+    df = pd.DataFrame(self._log_rows)
+    csv_path = self.log_path / "training_log.csv"
+    df.to_csv(csv_path, index=False)
+    print(f"[Log] Training log saved → {csv_path}")
+    _plot_reward_curve(df, self.log_path / "training_log.png")
+
+# plotting 
+def _plot_reward_curve(df: pd.DataFrame, out_path: Path):
+    '''
+    figure p6  - PPO training reward curve.
+    '''
+    fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+    fig.suptitle("PPO Training Progress- 6dof rocket landing", fontsize=14, fontweight="bold")
+    
+    ax = axes[0]
+    ax.plot(df["timestep"] / 1e6, df["mean_reward"], color="#2196F3", lw=1.5, label="Mean reward (200-ep)")
+
+    if len(df) > 20:
+        smooth = pd.Series(df["mean_reward"]).rolling(20, min_periods=1).mean() 
+        ax.plot(df["timestep"] / 1e6, smooth, color="#F44336", lw=2.5, label="Smoothed")
+    
+    ax.axhline(0, color='gray', lw=0.8, ls='--' )
+    ax.set_ylabel("Mean Episode Reward", fontsize=11)
+    ax.legend(loc="lower right")
+    ax.grid(True, alpha=0.3)
+
+    ax2 = axes[1]
+    ax2.plot(df["timestep"] / 1e6, df["success_rate"] * 100,
+             color="#4CAF50", lw=1.5, label="Success rate %")
+    if len(df) > 20:
+        smooth_suc = pd.Series(df["success_rate"] * 100).rolling(20, min_periods=1).mean()
+        ax2.plot(df["timestep"] / 1e6, smooth_suc, color="#388E3C", lw=2.5, label="Smoothed")
+
+    ax2b = ax2.twinx()
+    ax2b.plot(df["timestep"] / 1e6, df["wind_level"], color="#FF9800",
+              lw=1.5, ls="--", label="Wind (m/s)")
+    ax2b.set_ylabel("Wind V_ref (m/s)", color="#FF9800", fontsize=10)
+    ax2b.tick_params(axis="y", labelcolor="#FF9800")
+
+    ax2.set_xlabel("Timesteps (M)", fontsize=11)
+    ax2.set_ylabel("Success Rate (%)", fontsize=11)
+    ax2.set_ylim(-5, 105)
+    ax2.legend(loc="upper left")
+    ax2b.legend(loc="upper right")
+    ax2.grid(True, alpha=0.3)
+    
+    stage_colors = ["#E3F2FD", "#FFF3E0", "#FCE4EC", "#E8F5E9"]
+    breakpoints  = [0] + list(df[df["wind_level"].diff() != 0]["timestep"] / 1e6) + [df["timestep"].max() / 1e6]
+    wind_labels  = df.groupby("wind_level")["timestep"].min().sort_values()
+    for i in range(len(breakpoints) - 1):
+        for ax_s in axes:
+            ax_s.axvspan(breakpoints[i], breakpoints[i + 1],
+                         alpha=0.12, color=stage_colors[i % len(stage_colors)])
+
+    plt.tight_layout()
+    fig.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"[Plot] Reward curve saved → {out_path}")
+
+# main training function
+    
