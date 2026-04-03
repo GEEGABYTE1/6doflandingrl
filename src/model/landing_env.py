@@ -276,12 +276,37 @@ class RocketLandingEnv(gym.Env):
         )
 
         if self.randomise_ic:
-            alt    = float(self._rng.uniform(800.,  1200.))
-            vz     = float(self._rng.uniform(-120., -80.))
-            vx     = float(self._rng.normal(0.,     5.))
-            vy     = float(self._rng.normal(0.,     5.))
-            pitch  = float(self._rng.normal(0.,     5.))
-            ox     = float(self._rng.normal(0.,     0.02))
+            # ── Curriculum learning (DD-017) ──────────────────────
+            # Stage 0 (0–500k steps):   easy   — low alt, low speed
+            # Stage 1 (500k–1.5M):      medium — mid alt, mid speed
+            # Stage 2 (1.5M+):          full   — full randomisation
+            # CurriculumCallback in train_ppo.py advances the stage.
+            stage = getattr(self, '_curriculum_stage', 0)
+
+            if stage == 0:
+                # Easy: agent can accidentally land and get reward signal
+                alt   = float(self._rng.uniform(80.,   200.))
+                vz    = float(self._rng.uniform(-20.,  -8.))
+                vx    = float(self._rng.normal(0.,     0.5))
+                vy    = float(self._rng.normal(0.,     0.5))
+                pitch = float(self._rng.normal(0.,     1.0))
+                ox    = float(self._rng.normal(0.,     0.005))
+            elif stage == 1:
+                # Medium
+                alt   = float(self._rng.uniform(200.,  600.))
+                vz    = float(self._rng.uniform(-60.,  -20.))
+                vx    = float(self._rng.normal(0.,     2.))
+                vy    = float(self._rng.normal(0.,     2.))
+                pitch = float(self._rng.normal(0.,     3.))
+                ox    = float(self._rng.normal(0.,     0.01))
+            else:
+                # Full difficulty
+                alt   = float(self._rng.uniform(800.,  1200.))
+                vz    = float(self._rng.uniform(-120., -80.))
+                vx    = float(self._rng.normal(0.,     5.))
+                vy    = float(self._rng.normal(0.,     5.))
+                pitch = float(self._rng.normal(0.,     5.))
+                ox    = float(self._rng.normal(0.,     0.02))
         else:
             alt, vz, vx, vy, pitch, ox = 1000., -100., 0., 0., 0., 0.
 

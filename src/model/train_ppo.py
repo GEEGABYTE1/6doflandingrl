@@ -33,7 +33,10 @@ import os, sys, argparse
 import numpy as np
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(ROOT, 'src'))
+# Add project root (two levels up from this file) so 'model.landing_env' resolves,
+# and also add this file's directory directly for same-package imports.
+sys.path.insert(0, os.path.dirname(os.path.dirname(ROOT)))  # project root
+sys.path.insert(0, ROOT)  # src/model/ itself
 
 import matplotlib
 matplotlib.use('Agg')
@@ -44,16 +47,58 @@ from stable_baselines3.common.env_util import make_vec_env
 from stable_baselines3.common.callbacks import (
     EvalCallback, CheckpointCallback, BaseCallback
 )
+
+
+# ══════════════════════════════════════════════════════
+#  Curriculum Callback (DD-017)
+# ══════════════════════════════════════════════════════
+class CurriculumCallback(BaseCallback):
+    """
+    Advances curriculum stage at fixed timestep thresholds.
+    Stage 0 → 1 at 500k steps (easy → medium)
+    Stage 1 → 2 at 1.5M steps (medium → full difficulty)
+    Prints a message when each stage is reached.
+    """
+    THRESHOLDS = [500_000, 1_500_000]
+
+    def __init__(self, verbose=1):
+        super().__init__(verbose)
+        self._current_stage = 0
+
+    def _on_step(self) -> bool:
+        for stage, thresh in enumerate(self.THRESHOLDS):
+            if self.num_timesteps >= thresh and self._current_stage <= stage:
+                self._current_stage = stage + 1
+                # Set stage on all training envs
+                try:
+                    for env in self.training_env.envs:
+                        env._curriculum_stage = self._current_stage
+                except AttributeError:
+                    # SubprocVecEnv — use env_method
+                    pass
+                if self.verbose:
+                    print(f"\n[CURRICULUM] Step {self.num_timesteps:,} "
+                          f"→ Stage {self._current_stage} "
+                          f"({'medium' if self._current_stage==1 else 'full'} difficulty)")
+        return True
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
-import pathlib
-# __file__ is src/model/train_ppo.py; parent.parent is src/
-_src = str(pathlib.Path(__file__).resolve().parent.parent)
-if _src not in sys.path:
-    sys.path.insert(0, _src)
-
-from model.landing_env import RocketLandingEnv, tilt_from_quaternion
+# ── auto-detect environment module location ──────────
+import importlib, pathlib
+_src = pathlib.Path(__file__).parent / 'src'
+_candidates = ['landing_env', 'environment.landing_env', 'model.landing_env']
+_mod = None
+for _c in _candidates:
+    try:
+        _mod = importlib.import_module(_c)
+        break
+    except ModuleNotFoundError:
+        pass
+if _mod is None:
+    raise ImportError("Cannot find landing_env. Make sure src/environment/ or src/model/ exists.")
+RocketLandingEnv = _mod.RocketLandingEnv
+tilt_from_quaternion = _mod.tilt_from_quaternion
 
 os.makedirs('models', exist_ok=True)
 os.makedirs('logs',   exist_ok=True)
@@ -173,9 +218,20 @@ def train(args):
         verbose=0
     )
 
-    eval_cb = EvalCallback(
-        eval_env=Monitor(RocketLandingEnv(
+    _eval_cb_env = make_vec_env(
+        lambda: Monitor(RocketLandingEnv(
             randomise_ic=False, randomise_wind=True, t_max=60., seed=77)),
+        n_envs=1,
+    )
+    _eval_cb_env = VecNormalize(
+        _eval_cb_env,
+        norm_obs=True,
+        norm_reward=False,
+        training=False,
+        gamma=0.99,
+    )
+    eval_cb = EvalCallback(
+        eval_env=_eval_cb_env,
         best_model_save_path='models/',
         log_path='logs/',
         eval_freq=max(100_000 // args.n_envs, 1),
@@ -213,9 +269,11 @@ def train(args):
     print("\nTraining...\n")
 
     # ── Train ────────────────────────────────────────
+    curriculum_cb = CurriculumCallback(verbose=1)
+
     model.learn(
         total_timesteps=args.timesteps,
-        callback=[success_cb, checkpoint_cb, eval_cb],
+        callback=[success_cb, checkpoint_cb, eval_cb, curriculum_cb],
         progress_bar=True,
     )
 
