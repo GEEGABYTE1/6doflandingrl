@@ -1,14 +1,39 @@
 """
-training script
+train_ppo.py — PPO Training Script for 6DOF Rocket Landing
 ===========================================================
-Paper 5.3
+Paper §5.3 — Reinforcement Learning Controller
+
+Usage (from project root, venv active):
+    python train_ppo.py                    # full 5M step run
+    python train_ppo.py --timesteps 500000 # quick test run (~5 min)
+    python train_ppo.py --timesteps 5000000 --n_envs 8  # fast multi-env
+
+Outputs:
+    models/ppo_rocket_final.zip    — final policy checkpoint
+    models/ppo_rocket_best.zip     — best policy (by eval reward)
+    logs/ppo_tensorboard/          — TensorBoard logs
+    plots/P5_training_curves.png   — reward + success rate curves
+
+PPO Hyperparameters (paper Table III):
+    Algorithm:     PPO (Schulman et al. 2017)
+    Network:       MLP [256, 256], tanh activation
+    Learning rate: 3e-4 (constant)
+    n_steps:       2048  (rollout length per env)
+    batch_size:    64
+    n_epochs:      10
+    gamma:         0.99
+    gae_lambda:    0.95
+    clip_range:    0.2
+    ent_coef:      0.01  (encourages exploration)
+    n_envs:        4     (parallel environments)
+    Total steps:   5,000,000
 """
 
 import os, sys, argparse
 import numpy as np
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.dirname(ROOT))  
+sys.path.insert(0, os.path.join(ROOT, 'src'))
 
 import matplotlib
 matplotlib.use('Agg')
@@ -22,14 +47,27 @@ from stable_baselines3.common.callbacks import (
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
-from model.landing_env import RocketLandingEnv
+import pathlib
+# __file__ is src/model/train_ppo.py; parent.parent is src/
+_src = str(pathlib.Path(__file__).resolve().parent.parent)
+if _src not in sys.path:
+    sys.path.insert(0, _src)
+
+from model.landing_env import RocketLandingEnv, tilt_from_quaternion
 
 os.makedirs('models', exist_ok=True)
 os.makedirs('logs',   exist_ok=True)
 os.makedirs('plots',  exist_ok=True)
 
 
+# ══════════════════════════════════════════════════════
+#  Callback: track success rate during training
+# ══════════════════════════════════════════════════════
 class SuccessRateCallback(BaseCallback):
+    """
+    Logs success rate (soft landing) every eval_freq steps.
+    Writes to logs/success_rate.npz for plot generation.
+    """
     def __init__(self, eval_env, eval_freq=50_000, n_eval=20, verbose=1):
         super().__init__(verbose)
         self.eval_env  = eval_env
@@ -65,13 +103,17 @@ class SuccessRateCallback(BaseCallback):
                 print(f"  [eval] step={self.num_timesteps:>8,d}  "
                       f"success={sr:.0%}  mean_reward={mr:.1f}")
 
-    
+            # Save progress
             np.savez('logs/training_progress.npz',
                      timesteps=self.timesteps,
                      success_rate=self.successes,
                      mean_reward=self.rewards)
         return True
 
+
+# ══════════════════════════════════════════════════════
+#  Main training function
+# ══════════════════════════════════════════════════════
 def train(args):
     print("=" * 60)
     print("  Phase 2: PPO Training — 6DOF Rocket Landing")
@@ -81,7 +123,7 @@ def train(args):
     print(f"  Device          : {args.device}")
     print()
 
-   
+    # ── Training environments ────────────────────────
     def make_train_env():
         env = RocketLandingEnv(
             randomise_ic=True,
@@ -90,13 +132,25 @@ def train(args):
         )
         return Monitor(env)
 
+    # Use SubprocVecEnv for true parallelism (faster training)
     train_env = make_vec_env(
         make_train_env,
         n_envs=args.n_envs,
         vec_env_cls=SubprocVecEnv,
         seed=42
     )
+    # VecNormalize: normalises observations and rewards during training.
+    # Critical for PPO on continuous control — prevents gradient collapse
+    # when reward magnitudes vary widely across episodes. (DD-014b)
+    train_env = VecNormalize(
+        train_env,
+        norm_obs=True,
+        norm_reward=True,
+        clip_reward=10.,
+        gamma=0.99
+    )
 
+    # ── Evaluation environment (fixed IC, no randomisation) ──
     eval_env = RocketLandingEnv(
         randomise_ic=False,
         randomise_wind=True,
@@ -104,6 +158,7 @@ def train(args):
         seed=99
     )
 
+    # ── Callbacks ────────────────────────────────────
     success_cb = SuccessRateCallback(
         eval_env=eval_env,
         eval_freq=50_000,
@@ -129,6 +184,7 @@ def train(args):
         verbose=0
     )
 
+    # ── PPO Model (paper Table III hyperparameters) ──
     model = PPO(
         policy='MlpPolicy',
         env=train_env,
@@ -143,7 +199,7 @@ def train(args):
         vf_coef=0.5,
         max_grad_norm=0.5,
         policy_kwargs=dict(
-            net_arch=[256, 256],   
+            net_arch=[256, 256],   # two hidden layers of 256
             activation_fn=__import__('torch').nn.Tanh,
         ),
         tensorboard_log='logs/ppo_tensorboard',
@@ -156,22 +212,28 @@ def train(args):
     print(f"Parameters: {sum(p.numel() for p in model.policy.parameters()):,}")
     print("\nTraining...\n")
 
+    # ── Train ────────────────────────────────────────
     model.learn(
         total_timesteps=args.timesteps,
         callback=[success_cb, checkpoint_cb, eval_cb],
         progress_bar=True,
     )
 
+    # ── Save final model ─────────────────────────────
     model.save('models/ppo_rocket_final')
+    train_env.save('models/vec_normalize.pkl')  # save normalisation stats
     print("\n[SAVED] models/ppo_rocket_final.zip")
+    print("[SAVED] models/vec_normalize.pkl")
 
     train_env.close()
 
+    # ── Plot training curves ─────────────────────────
     plot_training_curves()
     print("[DONE] Training complete.")
 
 
 def plot_training_curves():
+    """Generate P5: training reward + success rate curves."""
     try:
         data = np.load('logs/training_progress.npz')
     except FileNotFoundError:
@@ -197,6 +259,8 @@ def plot_training_curves():
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
     fig.suptitle('PPO Training Progress — 6DOF Rocket Landing', fontsize=12)
+
+    # Success rate
     ax1.plot(steps, success, color=C0, linewidth=2.)
     if len(success) > 5:
         from scipy.ndimage import uniform_filter1d
@@ -211,6 +275,7 @@ def plot_training_curves():
     ax1.grid(True, alpha=0.4)
     ax1.set_ylim(-5, 105)
 
+    # Mean episode reward
     ax2.plot(steps, rewards, color=C1, linewidth=2.)
     if len(rewards) > 5:
         smoothed_r = uniform_filter1d(rewards, size=max(1, len(rewards)//8))
@@ -228,6 +293,10 @@ def plot_training_curves():
     print("[PLOT] plots/P5_training_curves.png")
     plt.close()
 
+
+# ══════════════════════════════════════════════════════
+#  Entry point
+# ══════════════════════════════════════════════════════
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Train PPO for rocket landing')
     parser.add_argument('--timesteps', type=int,   default=5_000_000,
