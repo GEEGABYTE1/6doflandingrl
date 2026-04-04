@@ -22,8 +22,9 @@ import numpy as np
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.dirname(ROOT)  # src/
 sys.path.insert(0, os.path.dirname(SRC))  # project root
-sys.path.insert(0, SRC)      # src/ — so 'dynamics.dynamics' and 'controllers.lqr' resolve
-sys.path.insert(0, ROOT)     # src/model/ — so 'landing_env' resolves directly
+sys.path.insert(0, SRC)   # src/ — so 'dynamics.dynamics' and 'controllers.lqr' resolve
+sys.path.insert(0, ROOT)  # src/model/ — so 'landing_env' resolves directly
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -98,7 +99,7 @@ def run_lqr(wind_speed=5., seed=42) -> dict:
     return sim.run(s, ctrl, t_max=120., noise_std=noise)
 
 
-def run_ppo(model_path: str, wind_speed=5., seed=42) -> dict:
+def run_ppo(model_path: str, wind_speed=5., seed=42, curriculum_stage=2) -> dict:
     """
     Evaluate a saved PPO policy on one episode.
     Uses raw RocketLandingEnv (no VecNormalize wrapper in eval).
@@ -133,10 +134,25 @@ def run_ppo(model_path: str, wind_speed=5., seed=42) -> dict:
         return obs_raw
 
     # Run raw environment
+    # Build eval env at the requested curriculum stage
+    # Stage 0/1: use appropriate alt/vz for that stage
+    _stage_alt = {0: 150., 1: 400., 2: 1000.}
+    _stage_vz  = {0: -15., 1: -40., 2: -100.}
+    eval_alt = _stage_alt.get(curriculum_stage, 1000.)
+    eval_vz  = _stage_vz.get(curriculum_stage, -100.)
+
     env  = RocketLandingEnv(
         randomise_ic=False, fixed_wind_speed=wind_speed,
         t_max=60., seed=seed)
+    env._curriculum_stage = curriculum_stage
+    # Override make_initial_state defaults by patching the call
+    _orig_make = env.make_initial_state if hasattr(env, 'make_initial_state') else None
     raw_obs, _ = env.reset(seed=seed)
+    # Manually set state to stage-appropriate IC
+    import sys as _sys; _sys.path.insert(0, 'src')
+    env._state = env._sim.make_initial_state(
+        altitude=eval_alt, vz=eval_vz, vx=0., vy=0., pitch_deg=1.)
+    raw_obs = env._get_obs()
     obs = normalise_obs(raw_obs)
 
     times   = [0.]
@@ -449,6 +465,8 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str,   default='models/ppo_rocket_final.zip')
     parser.add_argument('--wind',  type=float, default=5.)
     parser.add_argument('--seed',  type=int,   default=42)
+    parser.add_argument('--stage', type=int,   default=2,
+                        help='Curriculum stage for eval: 0=easy, 1=medium, 2=full (default: 2)')
     args = parser.parse_args()
 
     if not os.path.exists(args.model):
@@ -456,6 +474,10 @@ if __name__ == '__main__':
         print("        Run  python train_ppo.py  first.")
         sys.exit(1)
 
+    stage_labels = {0: 'easy (80-200m, -8 to -20 m/s)',
+                    1: 'medium (200-600m, -20 to -60 m/s)',
+                    2: 'full (800-1200m, -80 to -120 m/s)'}
+    print(f"[EVAL] Curriculum stage {args.stage}: {stage_labels.get(args.stage, 'full')}")
     print(f"[EVAL] Running LQR  (wind={args.wind} m/s, seed={args.seed})...")
     lqr = run_lqr(wind_speed=args.wind, seed=args.seed)
     ml  = lqr['metrics']
@@ -463,7 +485,8 @@ if __name__ == '__main__':
           f"err={ml['landing_pos_err']:.1f}m  success={ml['success']}")
 
     print(f"[EVAL] Running PPO  (wind={args.wind} m/s, seed={args.seed})...")
-    ppo = run_ppo(args.model, wind_speed=args.wind, seed=args.seed)
+    ppo = run_ppo(args.model, wind_speed=args.wind, seed=args.seed,
+                  curriculum_stage=args.stage)
     mp  = ppo['metrics']
     print(f"       vz={mp['touchdown_vz']:.2f}  tilt={mp['tilt_deg']:.2f}°  "
           f"err={mp['landing_pos_err']:.1f}m  success={mp['success']}")

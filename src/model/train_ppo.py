@@ -38,6 +38,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(os.path.dirname(ROOT)))  # project root
 sys.path.insert(0, ROOT)  # src/model/ itself
 
+
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -59,7 +60,7 @@ class CurriculumCallback(BaseCallback):
     Stage 1 → 2 at 1.5M steps (medium → full difficulty)
     Prints a message when each stage is reached.
     """
-    THRESHOLDS = [500_000, 1_500_000]
+    THRESHOLDS = [2_000_000, 4_000_000]  # 2M easy, 2M medium, 1M full
 
     def __init__(self, verbose=1):
         super().__init__(verbose)
@@ -71,10 +72,17 @@ class CurriculumCallback(BaseCallback):
                 self._current_stage = stage + 1
                 # Set stage on all training envs
                 try:
+                    # DummyVecEnv
                     for env in self.training_env.envs:
                         env._curriculum_stage = self._current_stage
                 except AttributeError:
-                    # SubprocVecEnv — use env_method
+                    pass
+                try:
+                    # SubprocVecEnv — set via env_method
+                    self.training_env.env_method(
+                        '__setattr__', '_curriculum_stage', self._current_stage
+                    )
+                except Exception:
                     pass
                 if self.verbose:
                     print(f"\n[CURRICULUM] Step {self.num_timesteps:,} "
@@ -224,11 +232,7 @@ def train(args):
         n_envs=1,
     )
     _eval_cb_env = VecNormalize(
-        _eval_cb_env,
-        norm_obs=True,
-        norm_reward=False,
-        training=False,
-        gamma=0.99,
+        _eval_cb_env, norm_obs=True, norm_reward=False, training=False, gamma=0.99,
     )
     eval_cb = EvalCallback(
         eval_env=_eval_cb_env,
@@ -241,28 +245,8 @@ def train(args):
     )
 
     # ── PPO Model (paper Table III hyperparameters) ──
-    model = PPO(
-        policy='MlpPolicy',
-        env=train_env,
-        learning_rate=3e-4,
-        n_steps=2048,
-        batch_size=64,
-        n_epochs=10,
-        gamma=0.99,
-        gae_lambda=0.95,
-        clip_range=0.2,
-        ent_coef=0.01,
-        vf_coef=0.5,
-        max_grad_norm=0.5,
-        policy_kwargs=dict(
-            net_arch=[256, 256],   # two hidden layers of 256
-            activation_fn=__import__('torch').nn.Tanh,
-        ),
-        tensorboard_log='logs/ppo_tensorboard',
-        device=args.device,
-        verbose=1,
-        seed=42,
-    )
+    model = PPO.load('models/best_model.zip', env=train_env, 
+                 device=args.device)
 
     print(f"\nPolicy network: MLP [256, 256] tanh")
     print(f"Parameters: {sum(p.numel() for p in model.policy.parameters()):,}")
