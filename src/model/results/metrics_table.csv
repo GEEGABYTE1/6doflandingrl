@@ -1,0 +1,8 @@
+Metric,LQR,PPO
+Success,True,False
+Touchdown vz (m/s),-2.62,-85.41
+Touchdown speed (m/s),4.08,85.73
+Tilt at landing (°),0.32,2.31
+Position error (m),78.7,34.9
+Fuel used (kg),5000,3292
+Flight time (s),31.0,9.7
