@@ -33,11 +33,7 @@ import os, sys, argparse
 import numpy as np
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-# Add project root (two levels up from this file) so 'model.landing_env' resolves,
-# and also add this file's directory directly for same-package imports.
-sys.path.insert(0, os.path.dirname(os.path.dirname(ROOT)))  # project root
-sys.path.insert(0, ROOT)  # src/model/ itself
-
+sys.path.insert(0, os.path.join(ROOT, 'src'))
 
 import matplotlib
 matplotlib.use('Agg')
@@ -60,7 +56,7 @@ class CurriculumCallback(BaseCallback):
     Stage 1 → 2 at 1.5M steps (medium → full difficulty)
     Prints a message when each stage is reached.
     """
-    THRESHOLDS = [2_000_000, 4_000_000]  # 2M easy, 2M medium, 1M full
+    THRESHOLDS = [1, 2]  # Stage 2 from step 1 — BC warmup handles deceleration
 
     def __init__(self, verbose=1):
         super().__init__(verbose)
@@ -95,7 +91,7 @@ from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 # ── auto-detect environment module location ──────────
 import importlib, pathlib
 _src = pathlib.Path(__file__).parent / 'src'
-_candidates = ['landing_env', 'environment.landing_env', 'model.landing_env']
+_candidates = ['environment.landing_env', 'model.landing_env']
 _mod = None
 for _c in _candidates:
     try:
@@ -245,8 +241,56 @@ def train(args):
     )
 
     # ── PPO Model (paper Table III hyperparameters) ──
-    model = PPO.load('models/best_model.zip', env=train_env, 
-                 device=args.device)
+    bc_path = args.bc_model + '.zip'
+    if not args.scratch and os.path.exists(bc_path):
+        print(f"\n[INFO] Loading BC pretrained policy from {bc_path}")
+        model = PPO.load(
+            args.bc_model,
+            env=train_env,
+            # Override hyperparams for RL fine-tuning
+            learning_rate=3e-4,
+            n_steps=2048,
+            batch_size=64,
+            n_epochs=10,
+            gamma=0.99,
+            gae_lambda=0.95,
+            clip_range=0.2,
+            ent_coef=0.01,
+            vf_coef=0.5,
+            max_grad_norm=0.5,
+            tensorboard_log='logs/ppo_tensorboard',
+            device=args.device,
+            verbose=1,
+        )
+        print("[INFO] Fine-tuning from BC pretrained policy")
+    else:
+        if args.scratch:
+            print("\n[INFO] Training from scratch (--scratch flag set)")
+        else:
+            print(f"\n[INFO] BC model not found at {bc_path} — training from scratch")
+            print("       Run: python collect_demonstrations.py && python pretrain_bc.py")
+        model = PPO(
+            policy='MlpPolicy',
+            env=train_env,
+            learning_rate=3e-4,
+            n_steps=2048,
+            batch_size=64,
+            n_epochs=10,
+            gamma=0.99,
+            gae_lambda=0.95,
+            clip_range=0.2,
+            ent_coef=0.01,
+            vf_coef=0.5,
+            max_grad_norm=0.5,
+            policy_kwargs=dict(
+                net_arch=[256, 256],
+                activation_fn=__import__('torch').nn.Tanh,
+            ),
+            tensorboard_log='logs/ppo_tensorboard',
+            device=args.device,
+            verbose=1,
+            seed=42,
+        )
 
     print(f"\nPolicy network: MLP [256, 256] tanh")
     print(f"Parameters: {sum(p.numel() for p in model.policy.parameters()):,}")
@@ -347,5 +391,9 @@ if __name__ == '__main__':
                         help='Parallel environments (default: 4)')
     parser.add_argument('--device',    type=str,   default='auto',
                         help='Device: auto, cpu, cuda (default: auto)')
+    parser.add_argument('--bc_model',  type=str,   default='models/bc_pretrained',
+                        help='BC pretrained model to fine-tune from (default: models/bc_pretrained)')
+    parser.add_argument('--scratch',   action='store_true',
+                        help='Train from scratch instead of BC warmup')
     args = parser.parse_args()
     train(args)
