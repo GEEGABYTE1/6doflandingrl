@@ -76,9 +76,9 @@ SENSOR_NOISE = np.array([
 ], dtype=np.float32)
 
 # Curriculum thresholds
-ADVANCE_THRESHOLD = 0.60
-WINDOW_SIZE       = 200
-MIN_STEPS_STAGE   = 50_000
+ADVANCE_THRESHOLD = 0.25   # lowered from 0.60 — 40% stochastic ≈ 70%+ deterministic --> switched to 25% to allow more time for learning each stage. we can play around with this.
+WINDOW_SIZE       = 100    # faster response to improvement
+MIN_STEPS_STAGE   = 30_000 # minimum steps per stage before advancing
 
 
 # ── Curriculum + logging callback ─────────────────────────────────────────────
@@ -211,7 +211,7 @@ def train(total_ts     : int  = 5_000_000,
           run_name     : str  = None,
           ckpt_freq    : int  = 100_000,
           add_noise    : bool = False,
-          start_stage  : int  = 2,
+          start_stage  : int  = 0,
           randomise_ics: bool = False):
 
     run_id  = run_name or f"ppo_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -245,7 +245,7 @@ def train(total_ts     : int  = 5_000_000,
 
     vec_env = VecMonitor(SubprocVecEnv([make_env(i) for i in range(n_envs)]))
 
-    # Eval env — ic_stage=2, deterministic, no noise (matches your config)
+    # Eval env — stage 2 (300m, no wind, deterministic) — fair mid-point eval
     eval_env = Monitor(RocketLandingEnv(
         ic_stage      = 2,
         randomise_ics = False,
@@ -316,7 +316,7 @@ if __name__ == "__main__":
     p.add_argument("--seed",         type=int,   default=42)
     p.add_argument("--run-name",     type=str,   default=None)
     p.add_argument("--ckpt-freq",    type=int,   default=100_000)
-    p.add_argument("--start-stage",  type=int,   default=2,
+    p.add_argument("--start-stage",  type=int,   default=0,
                    help="IC stage to start training at (0=easiest, 4=full scenario)")
     p.add_argument("--randomise",    action="store_true",
                    help="Randomise initial conditions each episode")
