@@ -1,399 +1,336 @@
 """
-train_ppo.py — PPO Training Script for 6DOF Rocket Landing
-===========================================================
-Paper §5.3 — Reinforcement Learning Controller
+train_ppo.py  —  PPO training with IC curriculum (Path A). No BC.
 
-Usage (from project root, venv active):
-    python train_ppo.py                    # full 5M step run
-    python train_ppo.py --timesteps 500000 # quick test run (~5 min)
-    python train_ppo.py --timesteps 5000000 --n_envs 8  # fast multi-env
+Usage:
+    # Default: start stage=2, no noise, no randomise (as configured)
+    python src/training/train_ppo.py --n-envs 8
 
-Outputs:
-    models/ppo_rocket_final.zip    — final policy checkpoint
-    models/ppo_rocket_best.zip     — best policy (by eval reward)
-    logs/ppo_tensorboard/          — TensorBoard logs
-    plots/P5_training_curves.png   — reward + success rate curves
+    # Full scenario from stage 0 with randomisation
+    python src/training/train_ppo.py --start-stage 0 --randomise --add-noise
 
-PPO Hyperparameters (paper Table III):
-    Algorithm:     PPO (Schulman et al. 2017)
-    Network:       MLP [256, 256], tanh activation
-    Learning rate: 3e-4 (constant)
-    n_steps:       2048  (rollout length per env)
-    batch_size:    64
-    n_epochs:      10
-    gamma:         0.99
-    gae_lambda:    0.95
-    clip_range:    0.2
-    ent_coef:      0.01  (encourages exploration)
-    n_envs:        4     (parallel environments)
-    Total steps:   5,000,000
+    # Quick smoke test
+    python src/training/train_ppo.py --timesteps 200000 --n-envs 4
+
+Curriculum advances IC stage when rolling success rate >= 60% over 200 episodes.
+
+Stages:
+    0:  50m /  -10 m/s /   0m offset / no wind
+    1: 150m /  -30 m/s /  ±30m       / no wind
+    2: 300m /  -55 m/s /  ±75m       /  5 m/s
+    3: 600m /  -75 m/s / ±150m       / 10 m/s
+    4: 1000m/ -100 m/s / ±200m       / 15 m/s
+
+Outputs (runs/<run_id>/):
+    best_model.zip, final_model.zip
+    training_log.csv, training_log.png
+    ppo_config.json
 """
 
-import os, sys, argparse
+import sys, json, argparse, time
+from datetime import datetime
+from pathlib import Path
+from collections import deque
+
 import numpy as np
-
-ROOT = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(ROOT, 'src'))
-
-import matplotlib
-matplotlib.use('Agg')
+import pandas as pd
+import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from stable_baselines3 import PPO
-from stable_baselines3.common.env_util import make_vec_env
+from stable_baselines3.common.vec_env   import SubprocVecEnv, VecMonitor
+from stable_baselines3.common.monitor   import Monitor
 from stable_baselines3.common.callbacks import (
-    EvalCallback, CheckpointCallback, BaseCallback
+    BaseCallback, CheckpointCallback, EvalCallback
+)
+import torch.nn as nn
+
+_ROOT = Path(__file__).resolve().parent.parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from landing_env import RocketLandingEnv, IC_STAGES, N_STAGES
+
+# ── PPO hyperparameters ───────────────────────────────────────────────────────
+PPO_KWARGS = dict(
+    policy        = "MlpPolicy",
+    policy_kwargs = dict(net_arch=[256, 256], activation_fn=nn.Tanh),
+    learning_rate = 3e-4,
+    n_steps       = 2048,
+    batch_size    = 512,
+    n_epochs      = 10,
+    gamma         = 0.995,
+    gae_lambda    = 0.95,
+    clip_range    = 0.2,
+    ent_coef      = 0.005,
+    vf_coef       = 0.5,
+    max_grad_norm = 0.5,
+    normalize_advantage = True,
+    verbose       = 1,
 )
 
+SENSOR_NOISE = np.array([
+    2., 2., 2., 0.1, 0.1, 0.1,
+    0.002, 0.002, 0.002, 0.002,
+    0.005, 0.005, 0.005, 500.,
+    0., 0., 0., 0.
+], dtype=np.float32)
 
-# ══════════════════════════════════════════════════════
-#  Curriculum Callback (DD-017)
-# ══════════════════════════════════════════════════════
+# Curriculum thresholds
+ADVANCE_THRESHOLD = 0.60
+WINDOW_SIZE       = 200
+MIN_STEPS_STAGE   = 50_000
+
+
+# ── Curriculum + logging callback ─────────────────────────────────────────────
 class CurriculumCallback(BaseCallback):
-    """
-    Advances curriculum stage at fixed timestep thresholds.
-    Stage 0 → 1 at 500k steps (easy → medium)
-    Stage 1 → 2 at 1.5M steps (medium → full difficulty)
-    Prints a message when each stage is reached.
-    """
-    THRESHOLDS = [1, 2]  # Stage 2 from step 1 — BC warmup handles deceleration
-
-    def __init__(self, verbose=1):
+    def __init__(self, n_envs, run_dir, start_stage=2, verbose=1):
         super().__init__(verbose)
-        self._current_stage = 0
+        self.n_envs          = n_envs
+        self.run_dir         = run_dir
+        self.stage           = start_stage
+        self.stage_start_ts  = 0
+        self._suc_window     = deque(maxlen=WINDOW_SIZE)
+        self._rew_window     = deque(maxlen=200)
+        self._log            = []
 
     def _on_step(self) -> bool:
-        for stage, thresh in enumerate(self.THRESHOLDS):
-            if self.num_timesteps >= thresh and self._current_stage <= stage:
-                self._current_stage = stage + 1
-                # Set stage on all training envs
+        for info in self.locals.get("infos", []):
+            if "episode" in info:
+                self._rew_window.append(info["episode"]["r"])
+            if info.get("terminated_reason") in ("success","crashed","landed","timeout"):
+                self._suc_window.append(1 if info.get("success") else 0)
+
+        ts = self.num_timesteps
+
+        # Advance stage on success rate threshold
+        if (self.stage < N_STAGES - 1
+                and len(self._suc_window) >= WINDOW_SIZE
+                and ts - self.stage_start_ts >= MIN_STEPS_STAGE
+                and np.mean(self._suc_window) >= ADVANCE_THRESHOLD):
+
+            self.stage += 1
+            self.stage_start_ts = ts
+            self._suc_window.clear()
+            alt, vz, pos, vel, wind = IC_STAGES[self.stage]
+            print(f"\n{'='*55}")
+            print(f"  [Curriculum] → STAGE {self.stage}  (step {ts:,})")
+            print(f"  alt={alt:.0f}m  vz={vz:.0f}m/s  "
+                  f"offset=±{pos:.0f}m  wind={wind:.0f}m/s")
+            print(f"{'='*55}\n")
+            for i in range(self.n_envs):
                 try:
-                    # DummyVecEnv
-                    for env in self.training_env.envs:
-                        env._curriculum_stage = self._current_stage
-                except AttributeError:
-                    pass
-                try:
-                    # SubprocVecEnv — set via env_method
                     self.training_env.env_method(
-                        '__setattr__', '_curriculum_stage', self._current_stage
-                    )
+                        "set_ic_stage", self.stage, indices=[i])
                 except Exception:
                     pass
-                if self.verbose:
-                    print(f"\n[CURRICULUM] Step {self.num_timesteps:,} "
-                          f"→ Stage {self._current_stage} "
-                          f"({'medium' if self._current_stage==1 else 'full'} difficulty)")
-        return True
-from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 
-# ── auto-detect environment module location ──────────
-import importlib, pathlib
-_src = pathlib.Path(__file__).parent / 'src'
-_candidates = ['environment.landing_env', 'model.landing_env']
-_mod = None
-for _c in _candidates:
-    try:
-        _mod = importlib.import_module(_c)
-        break
-    except ModuleNotFoundError:
-        pass
-if _mod is None:
-    raise ImportError("Cannot find landing_env. Make sure src/environment/ or src/model/ exists.")
-RocketLandingEnv = _mod.RocketLandingEnv
-tilt_from_quaternion = _mod.tilt_from_quaternion
-
-os.makedirs('models', exist_ok=True)
-os.makedirs('logs',   exist_ok=True)
-os.makedirs('plots',  exist_ok=True)
-
-
-# ══════════════════════════════════════════════════════
-#  Callback: track success rate during training
-# ══════════════════════════════════════════════════════
-class SuccessRateCallback(BaseCallback):
-    """
-    Logs success rate (soft landing) every eval_freq steps.
-    Writes to logs/success_rate.npz for plot generation.
-    """
-    def __init__(self, eval_env, eval_freq=50_000, n_eval=20, verbose=1):
-        super().__init__(verbose)
-        self.eval_env  = eval_env
-        self.eval_freq = eval_freq
-        self.n_eval    = n_eval
-        self.successes = []
-        self.timesteps = []
-        self.rewards   = []
-
-    def _on_step(self) -> bool:
-        if self.n_calls % self.eval_freq == 0:
-            wins, ep_rewards = 0, []
-            for _ in range(self.n_eval):
-                obs, _ = self.eval_env.reset()
-                done   = False
-                ep_r   = 0.
-                while not done:
-                    action, _ = self.model.predict(obs, deterministic=True)
-                    obs, r, term, trunc, info = self.eval_env.step(action)
-                    ep_r += r
-                    done  = term or trunc
-                ep_rewards.append(ep_r)
-                if info.get('success', False):
-                    wins += 1
-
-            sr = wins / self.n_eval
-            mr = np.mean(ep_rewards)
-            self.successes.append(sr)
-            self.rewards.append(mr)
-            self.timesteps.append(self.num_timesteps)
-
-            if self.verbose:
-                print(f"  [eval] step={self.num_timesteps:>8,d}  "
-                      f"success={sr:.0%}  mean_reward={mr:.1f}")
-
-            # Save progress
-            np.savez('logs/training_progress.npz',
-                     timesteps=self.timesteps,
-                     success_rate=self.successes,
-                     mean_reward=self.rewards)
+        # Log every 10k steps
+        if ts % 10_000 < self.n_envs:
+            mr = float(np.mean(self._rew_window)) if self._rew_window else 0.
+            sr = float(np.mean(self._suc_window)) if self._suc_window else 0.
+            self._log.append(dict(
+                timestep     = ts,
+                mean_reward  = round(mr, 2),
+                success_rate = round(sr, 4),
+                ic_stage     = self.stage,
+                stage_alt    = IC_STAGES[self.stage][0],
+            ))
+            if ts % 50_000 < self.n_envs:
+                print(f"  ts={ts:>8,}  rew={mr:>8.1f}  "
+                      f"suc={sr:.1%}  stage={self.stage}  "
+                      f"alt={IC_STAGES[self.stage][0]:.0f}m")
         return True
 
-
-# ══════════════════════════════════════════════════════
-#  Main training function
-# ══════════════════════════════════════════════════════
-def train(args):
-    print("=" * 60)
-    print("  Phase 2: PPO Training — 6DOF Rocket Landing")
-    print("=" * 60)
-    print(f"  Total timesteps : {args.timesteps:,}")
-    print(f"  Parallel envs   : {args.n_envs}")
-    print(f"  Device          : {args.device}")
-    print()
-
-    # ── Training environments ────────────────────────
-    def make_train_env():
-        env = RocketLandingEnv(
-            randomise_ic=True,
-            randomise_wind=True,
-            t_max=60.
-        )
-        return Monitor(env)
-
-    # Use SubprocVecEnv for true parallelism (faster training)
-    train_env = make_vec_env(
-        make_train_env,
-        n_envs=args.n_envs,
-        vec_env_cls=SubprocVecEnv,
-        seed=42
-    )
-    # VecNormalize: normalises observations and rewards during training.
-    # Critical for PPO on continuous control — prevents gradient collapse
-    # when reward magnitudes vary widely across episodes. (DD-014b)
-    train_env = VecNormalize(
-        train_env,
-        norm_obs=True,
-        norm_reward=True,
-        clip_reward=10.,
-        gamma=0.99
-    )
-
-    # ── Evaluation environment (fixed IC, no randomisation) ──
-    eval_env = RocketLandingEnv(
-        randomise_ic=False,
-        randomise_wind=True,
-        t_max=60.,
-        seed=99
-    )
-
-    # ── Callbacks ────────────────────────────────────
-    success_cb = SuccessRateCallback(
-        eval_env=eval_env,
-        eval_freq=50_000,
-        n_eval=20,
-        verbose=1
-    )
-
-    checkpoint_cb = CheckpointCallback(
-        save_freq=max(500_000 // args.n_envs, 1),
-        save_path='models/',
-        name_prefix='ppo_rocket_ckpt',
-        verbose=0
-    )
-
-    _eval_cb_env = make_vec_env(
-        lambda: Monitor(RocketLandingEnv(
-            randomise_ic=False, randomise_wind=True, t_max=60., seed=77)),
-        n_envs=1,
-    )
-    _eval_cb_env = VecNormalize(
-        _eval_cb_env, norm_obs=True, norm_reward=False, training=False, gamma=0.99,
-    )
-    eval_cb = EvalCallback(
-        eval_env=_eval_cb_env,
-        best_model_save_path='models/',
-        log_path='logs/',
-        eval_freq=max(100_000 // args.n_envs, 1),
-        n_eval_episodes=20,
-        deterministic=True,
-        verbose=0
-    )
-
-    # ── PPO Model (paper Table III hyperparameters) ──
-    bc_path = args.bc_model + '.zip'
-    if not args.scratch and os.path.exists(bc_path):
-        print(f"\n[INFO] Loading BC pretrained policy from {bc_path}")
-        model = PPO.load(
-            args.bc_model,
-            env=train_env,
-            # Override hyperparams for RL fine-tuning
-            learning_rate=3e-4,
-            n_steps=2048,
-            batch_size=64,
-            n_epochs=10,
-            gamma=0.99,
-            gae_lambda=0.95,
-            clip_range=0.2,
-            ent_coef=0.01,
-            vf_coef=0.5,
-            max_grad_norm=0.5,
-            tensorboard_log='logs/ppo_tensorboard',
-            device=args.device,
-            verbose=1,
-        )
-        print("[INFO] Fine-tuning from BC pretrained policy")
-    else:
-        if args.scratch:
-            print("\n[INFO] Training from scratch (--scratch flag set)")
-        else:
-            print(f"\n[INFO] BC model not found at {bc_path} — training from scratch")
-            print("       Run: python collect_demonstrations.py && python pretrain_bc.py")
-        model = PPO(
-            policy='MlpPolicy',
-            env=train_env,
-            learning_rate=3e-4,
-            n_steps=2048,
-            batch_size=64,
-            n_epochs=10,
-            gamma=0.99,
-            gae_lambda=0.95,
-            clip_range=0.2,
-            ent_coef=0.01,
-            vf_coef=0.5,
-            max_grad_norm=0.5,
-            policy_kwargs=dict(
-                net_arch=[256, 256],
-                activation_fn=__import__('torch').nn.Tanh,
-            ),
-            tensorboard_log='logs/ppo_tensorboard',
-            device=args.device,
-            verbose=1,
-            seed=42,
-        )
-
-    print(f"\nPolicy network: MLP [256, 256] tanh")
-    print(f"Parameters: {sum(p.numel() for p in model.policy.parameters()):,}")
-    print("\nTraining...\n")
-
-    # ── Train ────────────────────────────────────────
-    curriculum_cb = CurriculumCallback(verbose=1)
-
-    model.learn(
-        total_timesteps=args.timesteps,
-        callback=[success_cb, checkpoint_cb, eval_cb, curriculum_cb],
-        progress_bar=True,
-    )
-
-    # ── Save final model ─────────────────────────────
-    model.save('models/ppo_rocket_final')
-    train_env.save('models/vec_normalize.pkl')  # save normalisation stats
-    print("\n[SAVED] models/ppo_rocket_final.zip")
-    print("[SAVED] models/vec_normalize.pkl")
-
-    train_env.close()
-
-    # ── Plot training curves ─────────────────────────
-    plot_training_curves()
-    print("[DONE] Training complete.")
+    def _on_training_end(self):
+        if not self._log:
+            return
+        df = pd.DataFrame(self._log)
+        csv = self.run_dir / "training_log.csv"
+        df.to_csv(csv, index=False)
+        _plot(df, self.run_dir / "training_log.png")
+        print(f"[Log] → {csv}")
 
 
-def plot_training_curves():
-    """Generate P5: training reward + success rate curves."""
-    try:
-        data = np.load('logs/training_progress.npz')
-    except FileNotFoundError:
-        print("[WARN] No training progress data found — skipping plot.")
-        return
+# ── Plot ──────────────────────────────────────────────────────────────────────
+STAGE_COLORS = ["#E3F2FD","#FFF3E0","#F3E5F5","#E8F5E9","#FCE4EC"]
 
-    steps   = np.array(data['timesteps']) / 1e6
-    success = np.array(data['success_rate']) * 100
-    rewards = np.array(data['mean_reward'])
+def _plot(df, path):
+    fig, axes = plt.subplots(3, 1, figsize=(13, 10), sharex=True)
+    fig.suptitle("PPO Training — IC Curriculum (Path A)",
+                 fontsize=13, fontweight="bold")
+    ts_m = df.timestep / 1e6
 
-    BG  = '#0A0E1A'; BG2 = '#111827'; GRID = '#1E2A3A'
-    C0  = '#00D4FF'; C1  = '#FF6B35'; C2  = '#A8FF3E'
-    TXT = '#E8EDF5'; DIM = '#6B7B9A'
+    # Shade stages
+    for i in range(N_STAGES):
+        mask = df.ic_stage == i
+        if mask.any():
+            t0 = ts_m[mask].iloc[0]
+            t1 = ts_m[mask].iloc[-1]
+            for ax in axes:
+                ax.axvspan(t0, t1, alpha=0.10,
+                           color=STAGE_COLORS[i % len(STAGE_COLORS)])
 
-    plt.rcParams.update({
-        'figure.facecolor': BG, 'axes.facecolor': BG2,
-        'axes.edgecolor': GRID, 'axes.labelcolor': TXT,
-        'axes.titlecolor': TXT, 'xtick.color': DIM,
-        'ytick.color': DIM, 'grid.color': GRID,
-        'text.color': TXT, 'font.family': 'monospace',
-        'savefig.facecolor': BG, 'figure.dpi': 150, 'savefig.dpi': 180,
-    })
-
-    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
-    fig.suptitle('PPO Training Progress — 6DOF Rocket Landing', fontsize=12)
+    # Reward
+    ax = axes[0]
+    ax.plot(ts_m, df.mean_reward, color="#2196F3", lw=1.0, alpha=0.5)
+    if len(df) > 20:
+        ax.plot(ts_m, df.mean_reward.rolling(20, min_periods=1).mean(),
+                color="#E53935", lw=2.5, label="Smoothed")
+    ax.axhline(0, color="gray", lw=0.8, ls="--")
+    ax.set_ylabel("Mean Episode Reward")
+    ax.grid(True, alpha=0.3); ax.legend()
 
     # Success rate
-    ax1.plot(steps, success, color=C0, linewidth=2.)
-    if len(success) > 5:
-        from scipy.ndimage import uniform_filter1d
-        smoothed = uniform_filter1d(success, size=max(1, len(success)//8))
-        ax1.plot(steps, smoothed, color=C2, linewidth=2.5,
-                 linestyle='--', label='Smoothed')
-    ax1.axhline(70., color=C1, linestyle=':', linewidth=1.5,
-                alpha=0.8, label='70% target')
-    ax1.set_ylabel('Success Rate (%)')
-    ax1.set_title('Landing Success Rate (deterministic eval, 20 episodes)')
-    ax1.legend(fontsize=8)
-    ax1.grid(True, alpha=0.4)
-    ax1.set_ylim(-5, 105)
+    ax = axes[1]
+    ax.plot(ts_m, df.success_rate*100, color="#4CAF50", lw=1.0, alpha=0.5)
+    if len(df) > 20:
+        ax.plot(ts_m, (df.success_rate*100).rolling(20, min_periods=1).mean(),
+                color="#1B5E20", lw=2.5, label="Smoothed")
+    ax.axhline(60, color="orange", lw=1.2, ls="--", label="Advance threshold (60%)")
+    ax.set_ylabel("Success Rate (%)"); ax.set_ylim(-5, 105)
+    ax.grid(True, alpha=0.3); ax.legend(fontsize=9)
 
-    # Mean episode reward
-    ax2.plot(steps, rewards, color=C1, linewidth=2.)
-    if len(rewards) > 5:
-        smoothed_r = uniform_filter1d(rewards, size=max(1, len(rewards)//8))
-        ax2.plot(steps, smoothed_r, color=C2, linewidth=2.5,
-                 linestyle='--', label='Smoothed')
-    ax2.axhline(0., color=DIM, linestyle=':', linewidth=0.8, alpha=0.6)
-    ax2.set_ylabel('Mean Episode Reward')
-    ax2.set_xlabel('Training Steps (M)')
-    ax2.set_title('Mean Episode Reward')
-    ax2.legend(fontsize=8)
-    ax2.grid(True, alpha=0.4)
+    # Stage
+    ax = axes[2]
+    ax.step(ts_m, df.ic_stage, color="#9C27B0", lw=2.5, where="post")
+    ax.set_yticks(range(N_STAGES))
+    ax.set_yticklabels([f"S{i}: {IC_STAGES[i][0]:.0f}m"
+                        for i in range(N_STAGES)], fontsize=8)
+    ax.set_ylabel("IC Stage"); ax.set_xlabel("Timesteps (M)")
+    ax.grid(True, alpha=0.3)
 
     plt.tight_layout()
-    plt.savefig('plots/P5_training_curves.png', bbox_inches='tight')
-    print("[PLOT] plots/P5_training_curves.png")
-    plt.close()
+    fig.savefig(path, dpi=150, bbox_inches="tight"); plt.close()
+    print(f"[Plot] → {path}")
 
 
-# ══════════════════════════════════════════════════════
-#  Entry point
-# ══════════════════════════════════════════════════════
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Train PPO for rocket landing')
-    parser.add_argument('--timesteps', type=int,   default=5_000_000,
-                        help='Total training timesteps (default: 5M)')
-    parser.add_argument('--n_envs',    type=int,   default=4,
-                        help='Parallel environments (default: 4)')
-    parser.add_argument('--device',    type=str,   default='auto',
-                        help='Device: auto, cpu, cuda (default: auto)')
-    parser.add_argument('--bc_model',  type=str,   default='models/bc_pretrained',
-                        help='BC pretrained model to fine-tune from (default: models/bc_pretrained)')
-    parser.add_argument('--scratch',   action='store_true',
-                        help='Train from scratch instead of BC warmup')
-    args = parser.parse_args()
-    train(args)
+# ── Main ──────────────────────────────────────────────────────────────────────
+def train(total_ts     : int  = 5_000_000,
+          n_envs       : int  = 8,
+          seed         : int  = 42,
+          run_name     : str  = None,
+          ckpt_freq    : int  = 100_000,
+          add_noise    : bool = False,
+          start_stage  : int  = 2,
+          randomise_ics: bool = False):
+
+    run_id  = run_name or f"ppo_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+    run_dir = Path("runs") / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "checkpoints").mkdir(exist_ok=True)
+
+    noise = SENSOR_NOISE if add_noise else None
+
+    print(f"\n{'='*60}")
+    print(f"  Phase 2 PPO — IC Curriculum (Path A, no BC)")
+    print(f"  Run        : {run_id}")
+    print(f"  Timesteps  : {total_ts:,}   Envs: {n_envs}")
+    print(f"  Start stage: {start_stage}  ({IC_STAGES[start_stage][0]:.0f}m / "
+          f"{IC_STAGES[start_stage][1]:.0f} m/s)")
+    print(f"  Randomise  : {randomise_ics}")
+    print(f"  Noise      : {add_noise}")
+    print(f"  Advance at : {ADVANCE_THRESHOLD:.0%} success over {WINDOW_SIZE} eps")
+    print(f"{'='*60}\n")
+
+    # ── Training envs ─────────────────────────────────────────────────────────
+    def make_env(rank):
+        def _init():
+            return Monitor(RocketLandingEnv(
+                ic_stage      = start_stage,
+                randomise_ics = randomise_ics,
+                noise_std     = noise,
+                seed          = seed + rank,
+            ))
+        return _init
+
+    vec_env = VecMonitor(SubprocVecEnv([make_env(i) for i in range(n_envs)]))
+
+    # Eval env — ic_stage=2, deterministic, no noise (matches your config)
+    eval_env = Monitor(RocketLandingEnv(
+        ic_stage      = 2,
+        randomise_ics = False,
+        noise_std     = None,
+        seed          = 9999,
+    ))
+
+    # ── Model ─────────────────────────────────────────────────────────────────
+    model = PPO(env=vec_env, seed=seed, **PPO_KWARGS)
+
+    # ── Callbacks ─────────────────────────────────────────────────────────────
+    callbacks = [
+        CheckpointCallback(
+            save_freq   = max(ckpt_freq // n_envs, 1),
+            save_path   = str(run_dir / "checkpoints"),
+            name_prefix = "ckpt",
+            verbose     = 0,
+        ),
+        EvalCallback(
+            eval_env,
+            best_model_save_path = str(run_dir),
+            log_path             = str(run_dir),
+            eval_freq            = max(50_000 // n_envs, 1),
+            n_eval_episodes      = 20,
+            deterministic        = True,
+            verbose              = 1,
+        ),
+        CurriculumCallback(
+            n_envs       = n_envs,
+            run_dir      = run_dir,
+            start_stage  = start_stage,
+            verbose      = 1,
+        ),
+    ]
+
+    # Save config
+    json.dump(dict(
+        run_id=run_id, total_ts=total_ts, n_envs=n_envs,
+        seed=seed, add_noise=add_noise,
+        start_stage=start_stage, randomise_ics=randomise_ics,
+        advance_threshold=ADVANCE_THRESHOLD,
+        window_size=WINDOW_SIZE,
+        min_steps_stage=MIN_STEPS_STAGE,
+        stages=[dict(alt=a, vz=vz, pos=p, vel=v, wind=w)
+                for a, vz, p, v, w in IC_STAGES],
+        **{k: str(v) for k, v in PPO_KWARGS.items()},
+    ), open(run_dir / "ppo_config.json", "w"), indent=2)
+
+    # ── Train ─────────────────────────────────────────────────────────────────
+    t0 = time.time()
+    model.learn(total_timesteps=total_ts, callback=callbacks, progress_bar=True)
+
+    model.save(str(run_dir / "final_model"))
+    vec_env.close(); eval_env.close()
+
+    print(f"\n[Done] {(time.time()-t0)/3600:.1f}h")
+    print(f"  Best model  → {run_dir / 'best_model.zip'}")
+    print(f"  Final model → {run_dir / 'final_model.zip'}")
+    print(f"  Training log→ {run_dir / 'training_log.png'}")
+    return str(run_dir)
+
+
+# ── CLI ───────────────────────────────────────────────────────────────────────
+if __name__ == "__main__":
+    p = argparse.ArgumentParser(description="Train PPO with IC curriculum")
+    p.add_argument("--timesteps",    type=int,   default=5_000_000)
+    p.add_argument("--n-envs",       type=int,   default=8)
+    p.add_argument("--seed",         type=int,   default=42)
+    p.add_argument("--run-name",     type=str,   default=None)
+    p.add_argument("--ckpt-freq",    type=int,   default=100_000)
+    p.add_argument("--start-stage",  type=int,   default=2,
+                   help="IC stage to start training at (0=easiest, 4=full scenario)")
+    p.add_argument("--randomise",    action="store_true",
+                   help="Randomise initial conditions each episode")
+    p.add_argument("--add-noise",    action="store_true",
+                   help="Add sensor noise during training")
+    args = p.parse_args()
+
+    train(
+        total_ts      = args.timesteps,
+        n_envs        = args.n_envs,
+        seed          = args.seed,
+        run_name      = args.run_name,
+        ckpt_freq     = args.ckpt_freq,
+        start_stage   = args.start_stage,
+        randomise_ics = args.randomise,
+        add_noise     = args.add_noise,
+    )
