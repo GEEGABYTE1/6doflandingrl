@@ -56,12 +56,11 @@ MAX_POS_ERR     = 150.0
 
 # ── IC curriculum stages: (alt, vz_nom, pos_off, vel_off, wind) ──────────────
 IC_STAGES = [
-    (  50.,  -10.,   0.,  0.,  0.),   # 0 trivial — was giving 30% success
-    ( 150.,  -30.,  30.,  5.,  0.),   # 1 short burn, no wind
+    (  50.,  -10.,   0.,  0.,  0.),   # 0 trivial
+    ( 150.,  -30.,  30.,  5.,  0.),   # 1 short burn
     ( 300.,  -55.,  75., 10.,  5.),   # 2 medium + light wind
     ( 600.,  -75., 150., 12., 10.),   # 3 long + moderate wind
-    ( 800.,  -88., 175., 13., 12.),   # 4 NEW intermediate — bridges gap to full scenario
-    (1000., -100., 200., 15., 15.),   # 5 full scenario
+    (1000., -100., 200., 15., 15.),   # 4 full scenario
 ]
 N_STAGES = len(IC_STAGES)
 
