@@ -1,13 +1,11 @@
-"""Audit whether a saved Phase 1 trajectory represents a complete landing."""
 
+"""auditing whether the trajectory actually makes sense"""
 from __future__ import annotations
-
 import argparse
 import csv
 import json
 import os
 from pathlib import Path
-
 import numpy as np
 
 os.environ.setdefault("MPLCONFIGDIR", str(Path("outputs/.cache/matplotlib").resolve()))
@@ -15,9 +13,7 @@ os.environ.setdefault("XDG_CACHE_HOME", str(Path("outputs/.cache").resolve()))
 
 import matplotlib.pyplot as plt
 
-
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--trajectory",
@@ -41,7 +37,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_trajectory(path: Path) -> dict[str, np.ndarray]:
-    """Load a trajectory CSV into arrays."""
     with path.open("r", newline="", encoding="utf-8") as stream:
         rows = list(csv.DictReader(stream))
     if not rows:
@@ -50,7 +45,6 @@ def load_trajectory(path: Path) -> dict[str, np.ndarray]:
 
 
 def save_time_plot(time: np.ndarray, value: np.ndarray, ylabel: str, title: str, path: Path) -> None:
-    """Save one time-history plot."""
     fig, ax = plt.subplots(figsize=(8.0, 4.5))
     ax.plot(time, value)
     ax.set_xlabel("time [s]")
@@ -63,7 +57,6 @@ def save_time_plot(time: np.ndarray, value: np.ndarray, ylabel: str, title: str,
 
 
 def main() -> None:
-    """CLI entry point."""
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     data = load_trajectory(args.trajectory)
