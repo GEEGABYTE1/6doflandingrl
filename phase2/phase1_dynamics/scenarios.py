@@ -1,12 +1,8 @@
-"""Named Phase 1 evaluation scenarios."""
 
 from __future__ import annotations
-
 from dataclasses import asdict, dataclass, field
-
 import numpy as np
 from numpy.typing import NDArray
-
 from .disturbances import DisturbanceModel, SensorNoiseModel, ThrustMisalignmentModel, WindModel
 from .quaternion_utils import normalize_quaternion
 
@@ -16,8 +12,6 @@ Array = NDArray[np.float64]
 
 @dataclass(frozen=True)
 class ScenarioConfig:
-    """Initial condition and disturbance configuration for one evaluation run."""
-
     name: str
     description: str
     initial_position_m: tuple[float, float, float] = (12.0, -8.0, 120.0)
@@ -32,11 +26,9 @@ class ScenarioConfig:
     dt_s: float = 0.02
 
     def to_dict(self) -> dict[str, object]:
-        """Return a JSON-serializable scenario dictionary."""
         return asdict(self)
 
     def initial_state(self, seed: int) -> Array:
-        """Return the deterministic 14-state initial condition for this scenario."""
         rng = np.random.default_rng(seed)
         state = np.zeros(14, dtype=float)
         state[0:3] = np.array(self.initial_position_m, dtype=float)
@@ -48,7 +40,6 @@ class ScenarioConfig:
         return state
 
     def disturbances(self, seed: int) -> DisturbanceModel:
-        """Return modular disturbance models for this scenario."""
         return DisturbanceModel(
             wind=WindModel(
                 steady_wind_inertial_mps=np.array(self.wind_mps, dtype=float),
@@ -64,7 +55,6 @@ class ScenarioConfig:
 
 
 def named_scenarios() -> list[ScenarioConfig]:
-    """Return the Phase 1 nominal and off-nominal scenario set."""
     return [
         ScenarioConfig(name="nominal", description="Nominal descent with mild wind and thrust bias."),
         ScenarioConfig(
@@ -119,7 +109,6 @@ def named_scenarios() -> list[ScenarioConfig]:
 
 
 def mass_sweep_scenarios() -> list[ScenarioConfig]:
-    """Return default initial-mass sweep scenarios."""
     return [
         ScenarioConfig(
             name=f"mass_{int(mass)}kg",
@@ -131,7 +120,6 @@ def mass_sweep_scenarios() -> list[ScenarioConfig]:
 
 
 def disturbance_sweep_scenarios() -> list[ScenarioConfig]:
-    """Return wind and thrust-misalignment severity sweep scenarios."""
     scenarios: list[ScenarioConfig] = []
     for wind in [0.0, 2.0, 5.0, 8.0]:
         scenarios.append(

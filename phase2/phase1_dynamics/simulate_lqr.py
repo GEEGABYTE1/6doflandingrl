@@ -1,13 +1,10 @@
-"""Run a reproducible Phase 1 landing simulation with the classical baseline."""
 
 from __future__ import annotations
-
 import argparse
 import csv
 import json
 import sys
 from pathlib import Path
-
 import numpy as np
 
 if __package__ in {None, ""}:
@@ -41,7 +38,6 @@ else:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=7, help="Random seed for reproducibility.")
     parser.add_argument("--duration", type=float, default=35.0, help="Simulation duration in seconds.")
@@ -56,7 +52,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def initial_state(seed: int) -> np.ndarray:
-    """Create a deterministic off-nominal initial landing state."""
     rng = np.random.default_rng(seed)
     state = np.zeros(14, dtype=float)
     state[0:3] = np.array([12.0, -8.0, 120.0], dtype=float)
@@ -70,7 +65,6 @@ def initial_state(seed: int) -> np.ndarray:
 
 
 def build_dynamics(seed: int, scenario: ScenarioConfig | None = None) -> RocketDynamics:
-    """Assemble the Phase 1 dynamics model."""
     engine_config = EngineConfig()
     if scenario is None:
         disturbances = DisturbanceModel(
@@ -102,7 +96,6 @@ def run_closed_loop(
     dt_s: float,
     scenario: ScenarioConfig | None = None,
 ) -> tuple[list[dict[str, float]], dict[str, float]]:
-    """Run the closed-loop simulation and return trajectory rows plus metrics."""
     dynamics = build_dynamics(seed, scenario)
     controller = GainScheduledLQRController(engine=dynamics.propulsion.config)
     state = scenario.initial_state(seed) if scenario is not None else initial_state(seed)
@@ -163,12 +156,10 @@ def run_closed_loop(
 
 
 def run_simulation(seed: int, duration_s: float, dt_s: float) -> tuple[list[dict[str, float]], dict[str, float]]:
-    """Run the default nominal simulation and return trajectory rows plus metrics."""
     return run_closed_loop(seed=seed, duration_s=duration_s, dt_s=dt_s, scenario=None)
 
 
 def save_outputs(rows: list[dict[str, float]], metrics: dict[str, float], output_dir: Path) -> None:
-    """Save trajectory CSV and metrics JSON."""
     output_dir.mkdir(parents=True, exist_ok=True)
     trajectory_path = output_dir / "trajectory.csv"
     with trajectory_path.open("w", newline="", encoding="utf-8") as stream:
@@ -180,7 +171,6 @@ def save_outputs(rows: list[dict[str, float]], metrics: dict[str, float], output
 
 
 def main() -> None:
-    """CLI entry point."""
     args = parse_args()
     rows, metrics = run_simulation(args.seed, args.duration, args.dt)
     save_outputs(rows, metrics, args.output_dir)

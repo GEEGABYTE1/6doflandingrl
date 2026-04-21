@@ -1,20 +1,15 @@
-"""Thrust and thrust-vector-control model."""
+"""thrust and tvc model."""
 
 from __future__ import annotations
-
 from dataclasses import dataclass, field
-
 import numpy as np
 from numpy.typing import NDArray
 
-
 Array = NDArray[np.float64]
-
 
 @dataclass(frozen=True)
 class EngineConfig:
-    """Single-engine configuration for a throttleable landing rocket."""
-
+    """single-engine configuration for a throttleable landing rocket."""
     max_thrust_n: float = 18_000.0
     min_throttle: float = 0.0
     max_throttle: float = 1.0
@@ -24,24 +19,18 @@ class EngineConfig:
     dry_mass_kg: float = 850.0
     standard_gravity_mps2: float = 9.80665
 
-
 @dataclass(frozen=True)
 class TVCCommand:
-    """Throttle and body-axis gimbal command.
-
+    """
     ``pitch_rad`` tilts thrust toward body ``+x``. ``yaw_rad`` tilts thrust
     toward body ``+y``. Nominal thrust points along body ``+z``.
     """
-
     throttle: float
     pitch_rad: float
     yaw_rad: float
 
-
 @dataclass(frozen=True)
 class PropulsionOutput:
-    """Force, moment, and mass-flow output from the propulsion model."""
-
     force_body_n: Array
     moment_body_nm: Array
     mass_flow_kgps: float
@@ -49,11 +38,8 @@ class PropulsionOutput:
     pitch_rad: float
     yaw_rad: float
 
-
 @dataclass(frozen=True)
 class PropulsionModel:
-    """Throttleable engine with simple thrust-vector-control mapping."""
-
     config: EngineConfig = field(default_factory=EngineConfig)
 
     def evaluate(
@@ -62,9 +48,7 @@ class PropulsionModel:
         mass_kg: float,
         misalignment_pitch_yaw_rad: Array | None = None,
     ) -> PropulsionOutput:
-        """Compute body-frame thrust force, moment, and mass derivative.
-
-        The engine is located below the center of mass at ``r = [0, 0, -L]`` in
+        """ the engine is located below the center of mass at ``r = [0, 0, -L]`` in
         body coordinates. The moment is ``M_B = r_B x F_B``.
         """
         cfg = self.config

@@ -1,13 +1,10 @@
-"""Numerical integrity validation for the Phase 1 simulator."""
 
 from __future__ import annotations
-
 import argparse
 import csv
 import json
 import sys
 from pathlib import Path
-
 import numpy as np
 
 if __package__ in {None, ""}:
@@ -22,7 +19,6 @@ else:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=7, help="Deterministic validation seed.")
     parser.add_argument(
@@ -35,7 +31,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
-    """Write dictionaries to CSV."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.DictWriter(stream, fieldnames=list(rows[0].keys()))
@@ -44,7 +39,6 @@ def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
 
 
 def invariant_report(rows: list[dict[str, float]]) -> dict[str, float | bool]:
-    """Return invariant checks for one trajectory."""
     engine = EngineConfig()
     q_norm = np.array(
         [
@@ -70,7 +64,6 @@ def invariant_report(rows: list[dict[str, float]]) -> dict[str, float | bool]:
 
 
 def main() -> None:
-    """CLI entry point."""
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     scenario = ScenarioConfig(name="nominal_validation", description="Nominal validation case.")
