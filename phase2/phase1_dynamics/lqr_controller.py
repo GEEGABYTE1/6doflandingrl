@@ -1,4 +1,4 @@
-"""Classical landing baseline based on simplified LQR gains."""
+"""Classical landing baseline based on hover-trim 6DOF LQR."""
 
 from __future__ import annotations
 
@@ -15,15 +15,72 @@ from .quaternion_utils import attitude_error_vector
 Array = NDArray[np.float64]
 
 
-def double_integrator_lqr(q_position: float, q_velocity: float, r_accel: float) -> Array:
-    """Return LQR feedback gains for ``x_dot = v, v_dot = u``."""
-    a = np.array([[0.0, 1.0], [0.0, 0.0]], dtype=float)
-    b = np.array([[0.0], [1.0]], dtype=float)
-    q = np.diag([q_position, q_velocity])
-    r = np.array([[r_accel]], dtype=float)
+def hover_trim_linearization(
+    engine: EngineConfig,
+    nominal_mass_kg: float,
+    inertia_body_kgm2: Array,
+) -> tuple[Array, Array]:
+    """Return continuous-time small-error matrices around upright hover trim.
+
+    The error state is ``[r_I, v_I, eta_BI, omega_B]`` where ``eta_BI`` is the
+    small rotation vector associated with the body-to-inertial quaternion. The
+    control perturbation is ``[delta_throttle, pitch_gimbal, yaw_gimbal]``.
+
+    Small-angle equations used here:
+    ``ax ~= g * (theta + pitch_gimbal)``,
+    ``ay ~= g * (yaw_gimbal - phi)``,
+    ``az ~= (Tmax / m) * delta_throttle``,
+    ``pdot ~= L * T_hover / Ixx * yaw_gimbal``,
+    ``qdot ~= -L * T_hover / Iyy * pitch_gimbal``.
+    """
+    mass = float(nominal_mass_kg)
+    hover_thrust = mass * engine.standard_gravity_mps2
+    a = np.zeros((12, 12), dtype=float)
+    b = np.zeros((12, 3), dtype=float)
+
+    a[0:3, 3:6] = np.eye(3)
+    a[6:9, 9:12] = np.eye(3)
+
+    # Translational coupling from attitude near upright hover.
+    a[3, 7] = engine.standard_gravity_mps2
+    a[4, 6] = -engine.standard_gravity_mps2
+
+    b[3, 1] = engine.standard_gravity_mps2
+    b[4, 2] = engine.standard_gravity_mps2
+    b[5, 0] = engine.max_thrust_n / mass
+
+    ixx = float(inertia_body_kgm2[0, 0])
+    iyy = float(inertia_body_kgm2[1, 1])
+    b[9, 2] = engine.lever_arm_m * hover_thrust / ixx
+    b[10, 1] = -engine.lever_arm_m * hover_thrust / iyy
+    return a, b
+
+
+def hover_trim_lqr_gain(
+    engine: EngineConfig,
+    nominal_mass_kg: float,
+    inertia_body_kgm2: Array,
+    q_weights: Array,
+    r_weights: Array,
+) -> Array:
+    """Solve the hover-trim LQR on the controllable TVC state subset.
+
+    A single centered TVC engine controls pitch and roll moments through thrust
+    vectoring, but it does not generate moment about body ``+z``. The yaw angle
+    and yaw rate states are therefore kept in the public 12-state model with
+    zero feedback gains rather than forcing an invalid Riccati solve.
+    """
+    a_full, b_full = hover_trim_linearization(engine, nominal_mass_kg, inertia_body_kgm2)
+    controlled_indices = np.array([0, 1, 2, 3, 4, 5, 6, 7, 9, 10], dtype=int)
+    a = a_full[np.ix_(controlled_indices, controlled_indices)]
+    b = b_full[controlled_indices, :]
+    q = np.diag(q_weights[controlled_indices])
+    r = np.diag(r_weights)
     p = solve_continuous_are(a, b, q, r)
-    gain = np.linalg.solve(r, b.T @ p)
-    return gain.reshape(2)
+    reduced_gain = np.linalg.solve(r, b.T @ p)
+    full_gain = np.zeros((3, 12), dtype=float)
+    full_gain[:, controlled_indices] = reduced_gain
+    return full_gain
 
 
 @dataclass(frozen=True)
@@ -35,29 +92,61 @@ class LandingTarget:
 
 
 @dataclass
-class SimplifiedLQRController:
-    """Stabilizing classical baseline for vertical landing.
+class HoverTrimLQRController:
+    """Full hover-trim 6DOF LQR baseline for vertical landing.
 
-    This controller uses continuous-time LQR gains from decoupled translational
-    double-integrator approximations. Lateral acceleration commands are mapped
-    to gimbal angles, while vertical acceleration commands are mapped to
-    throttle. Attitude rates are damped with a PD term. This is intentionally
-    documented as a Phase 1 baseline rather than a full nonlinear TVC LQR.
+    The controller is designed from a small-angle hover linearization of the
+    6DOF rocket dynamics. It tracks a descent-rate reference in the vertical
+    channel and zero lateral displacement at the pad. This is a stronger
+    classical baseline than the previous decoupled controller, while still
+    documenting the key approximation: the gain is a local hover-trim gain, not
+    a time-varying LQR along a full fuel-varying descent trajectory.
     """
 
     engine: EngineConfig = field(default_factory=EngineConfig)
     target: LandingTarget = field(default_factory=LandingTarget)
-    vertical_gain: Array = field(default_factory=lambda: double_integrator_lqr(0.04, 0.8, 1.0))
-    lateral_gain: Array = field(default_factory=lambda: double_integrator_lqr(0.03, 0.5, 2.0))
-    attitude_kp_nm_per_rad: float = 6_000.0
-    attitude_kd_nm_per_radps: float = 3_500.0
-    lateral_tvc_scale: float = 0.0
-    vertical_velocity_gain: float = 2.2
-    glide_slope_gain: float = 0.09
+    nominal_mass_kg: float = 1_150.0
+    inertia_body_kgm2: Array = field(
+        default_factory=lambda: np.diag(np.array([1_200.0, 1_200.0, 120.0], dtype=float))
+    )
+    q_weights: Array = field(
+        default_factory=lambda: np.array(
+            [
+                1.2,
+                1.2,
+                0.8,
+                2.0,
+                2.0,
+                3.0,
+                35.0,
+                35.0,
+                0.2,
+                8.0,
+                8.0,
+                0.2,
+            ],
+            dtype=float,
+        )
+    )
+    r_weights: Array = field(
+        default_factory=lambda: np.array([0.8, 35.0, 35.0], dtype=float)
+    )
+    glide_slope_gain: float = 0.075
     min_descent_rate_mps: float = 0.6
-    max_descent_rate_mps: float = 10.0
-    max_vertical_accel_mps2: float = 18.0
+    max_descent_rate_mps: float = 7.0
+    max_throttle_delta: float = 0.55
     command_gimbal_limit_rad: float = np.deg2rad(8.0)
+    gain: Array = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Solve the continuous-time LQR problem for the hover trim."""
+        self.gain = hover_trim_lqr_gain(
+            self.engine,
+            self.nominal_mass_kg,
+            self.inertia_body_kgm2,
+            self.q_weights,
+            self.r_weights,
+        )
 
     def command(self, time_s: float, state: Array) -> TVCCommand:
         """Compute a TVC command from the current simulator state."""
@@ -68,20 +157,6 @@ class SimplifiedLQRController:
         omega_body = np.asarray(state[10:13], dtype=float)
         mass = float(state[13])
 
-        pos_error = position - self.target.position_inertial_m
-        vel_error = velocity - self.target.velocity_inertial_mps
-
-        lateral_accel_cmd = np.zeros(2, dtype=float)
-        for axis in range(2):
-            lateral_accel_cmd[axis] = -float(
-                self.lateral_gain @ np.array([pos_error[axis], vel_error[axis]], dtype=float)
-            )
-
-        # A pure double-integrator regulator to z=0 can command additional
-        # downward acceleration when the vehicle is high above the pad. For a
-        # landing baseline we keep the LQR gains for the lateral channel and
-        # use a glide-slope vertical target that brakes hard when descending
-        # faster than the altitude-dependent reference speed.
         altitude = max(0.0, float(position[2] - self.target.position_inertial_m[2]))
         desired_vz = -float(
             np.clip(
@@ -90,40 +165,38 @@ class SimplifiedLQRController:
                 self.max_descent_rate_mps,
             )
         )
-        vertical_accel_cmd = self.vertical_velocity_gain * (desired_vz - velocity[2])
-        vertical_accel_cmd = float(
-            np.clip(vertical_accel_cmd, -self.max_vertical_accel_mps2, self.max_vertical_accel_mps2)
+        reference_position = np.array(
+            [
+                self.target.position_inertial_m[0],
+                self.target.position_inertial_m[1],
+                position[2],
+            ],
+            dtype=float,
         )
-
-        required_thrust = mass * (self.engine.standard_gravity_mps2 + vertical_accel_cmd)
-        throttle = required_thrust / self.engine.max_thrust_n
-
-        # Small-angle thrust tilt: lateral acceleration ~= g * tilt angle near hover.
-        pitch = self.lateral_tvc_scale * lateral_accel_cmd[0] / max(
-            self.engine.standard_gravity_mps2, 1.0
-        )
-        yaw = self.lateral_tvc_scale * lateral_accel_cmd[1] / max(
-            self.engine.standard_gravity_mps2, 1.0
-        )
-
+        reference_velocity = np.array([0.0, 0.0, desired_vz], dtype=float)
         attitude_error = attitude_error_vector(q_bi)
-        thrust_estimate = max(throttle * self.engine.max_thrust_n, 1.0)
-        moment_arm = max(self.engine.lever_arm_m * thrust_estimate, 1.0)
-        desired_moment_x = (
-            -self.attitude_kp_nm_per_rad * attitude_error[0]
-            - self.attitude_kd_nm_per_radps * omega_body[0]
+        error_state = np.concatenate(
+            (
+                position - reference_position,
+                velocity - reference_velocity,
+                attitude_error,
+                omega_body,
+            )
         )
-        desired_moment_y = (
-            -self.attitude_kp_nm_per_rad * attitude_error[1]
-            - self.attitude_kd_nm_per_radps * omega_body[1]
+
+        control_delta = -self.gain @ error_state
+        hover_throttle = mass * self.engine.standard_gravity_mps2 / self.engine.max_thrust_n
+        throttle = hover_throttle + float(
+            np.clip(control_delta[0], -self.max_throttle_delta, self.max_throttle_delta)
         )
-        # For r_engine=[0,0,-L], small angles give Mx ~= L*T*yaw
-        # and My ~= -L*T*pitch.
-        yaw += desired_moment_x / moment_arm
-        pitch += -desired_moment_y / moment_arm
+        pitch = float(control_delta[1])
+        yaw = float(control_delta[2])
 
         return TVCCommand(
             throttle=float(np.clip(throttle, self.engine.min_throttle, self.engine.max_throttle)),
             pitch_rad=float(np.clip(pitch, -self.command_gimbal_limit_rad, self.command_gimbal_limit_rad)),
             yaw_rad=float(np.clip(yaw, -self.command_gimbal_limit_rad, self.command_gimbal_limit_rad)),
         )
+
+
+SimplifiedLQRController = HoverTrimLQRController
