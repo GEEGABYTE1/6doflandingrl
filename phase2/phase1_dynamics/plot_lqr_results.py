@@ -1,22 +1,16 @@
-"""Generate reproducible Phase 1 plots from saved LQR trajectory outputs."""
 
 from __future__ import annotations
-
 import argparse
 import csv
 import os
 from pathlib import Path
-
 import numpy as np
 
 os.environ.setdefault("MPLCONFIGDIR", str(Path("outputs/.cache/matplotlib").resolve()))
 os.environ.setdefault("XDG_CACHE_HOME", str(Path("outputs/.cache").resolve()))
-
 import matplotlib.pyplot as plt
 
-
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--input-csv",
@@ -32,9 +26,7 @@ def parse_args() -> argparse.Namespace:
     )
     return parser.parse_args()
 
-
 def load_trajectory(path: Path) -> dict[str, np.ndarray]:
-    """Load a trajectory CSV into named NumPy arrays."""
     with path.open("r", newline="", encoding="utf-8") as stream:
         rows = list(csv.DictReader(stream))
     if not rows:
@@ -46,7 +38,6 @@ def load_trajectory(path: Path) -> dict[str, np.ndarray]:
 
 
 def save_plots(data: dict[str, np.ndarray], output_dir: Path) -> list[Path]:
-    """Save trajectory, state-history, and control-history plots."""
     output_dir.mkdir(parents=True, exist_ok=True)
     saved: list[Path] = []
     time = data["time_s"]
@@ -102,7 +93,6 @@ def save_plots(data: dict[str, np.ndarray], output_dir: Path) -> list[Path]:
 
 
 def main() -> None:
-    """CLI entry point."""
     args = parse_args()
     data = load_trajectory(args.input_csv)
     saved = save_plots(data, args.output_dir)

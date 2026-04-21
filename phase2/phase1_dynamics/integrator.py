@@ -1,5 +1,3 @@
-"""Numerical integration utilities for simulator state propagation."""
-
 from __future__ import annotations
 
 from typing import Callable
@@ -15,7 +13,7 @@ DerivativeFunction = Callable[[float, Array], Array]
 
 
 def rk4_step(derivative_fn: DerivativeFunction, time_s: float, state: Array, dt_s: float) -> Array:
-    """Advance ``state`` by one fixed-step fourth-order Runge-Kutta update."""
+    #fourth-order Runge-kutta integrator
     y = np.asarray(state, dtype=float)
     dt = float(dt_s)
     k1 = derivative_fn(time_s, y)

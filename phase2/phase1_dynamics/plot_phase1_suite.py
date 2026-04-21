@@ -1,7 +1,5 @@
-"""Generate the reproducible Phase 1 paper figure suite from saved artifacts."""
 
 from __future__ import annotations
-
 import argparse
 import csv
 import json
@@ -24,7 +22,6 @@ else:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-dir", type=Path, default=Path("outputs/phase1_evaluation"))
     parser.add_argument("--validation-dir", type=Path, default=Path("outputs/phase1_validation"))
@@ -33,13 +30,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def load_csv_rows(path: Path) -> list[dict[str, str]]:
-    """Load raw CSV rows as dictionaries."""
     with path.open("r", newline="", encoding="utf-8") as stream:
         return list(csv.DictReader(stream))
 
 
 def load_trajectory(path: Path) -> dict[str, np.ndarray]:
-    """Load a trajectory CSV into named arrays."""
     rows = load_csv_rows(path)
     if not rows:
         raise ValueError(f"No rows in {path}")
@@ -56,7 +51,6 @@ def save_single_axis(
     title: str,
     path: Path,
 ) -> Path:
-    """Save a simple time-history figure."""
     fig, ax = plt.subplots(figsize=(8.0, 4.5))
     for series, label in values:
         ax.plot(time, series, label=label)
@@ -72,7 +66,6 @@ def save_single_axis(
 
 
 def save_trajectory_evidence_panel(data: dict[str, np.ndarray], output_dir: Path) -> Path:
-    """Save the primary paper-facing figure proving touchdown behavior."""
     time = data["time_s"]
     lateral_error = np.hypot(data["x_m"], data["y_m"])
     downrange = np.hypot(data["x_m"] - data["x_m"][0], data["y_m"] - data["y_m"][0])
@@ -113,60 +106,108 @@ def save_trajectory_evidence_panel(data: dict[str, np.ndarray], output_dir: Path
     return path
 
 
+def save_3d_trajectory_view(
+    data: dict[str, np.ndarray],
+    output_dir: Path,
+    filename: str,
+    elev_deg: float,
+    azim_deg: float,
+    title_suffix: str,
+    include_side_projections: bool = False,
+    selected: bool = False,
+) -> Path:
+    time = data["time_s"]
+    x = data["x_m"]
+    y = data["y_m"]
+    z = data["z_m"]
+    if not np.all(np.diff(time) > 0.0):
+        raise ValueError("Trajectory time stamps must be strictly increasing for 3D plotting.")
+    x_min, x_max = float(np.min(x)), float(np.max(x))
+    y_min, y_max = float(np.min(y)), float(np.max(y))
+    z_min, z_max = 0.0, max(1.0, float(np.max(z)))
+    x_center = 0.5 * (x_min + x_max)
+    y_center = 0.5 * (y_min + y_max)
+    z_center = 0.5 * (z_min + z_max)
+    data_range = max(x_max - x_min, y_max - y_min, z_max - z_min, 1.0)
+
+    half_range = 0.55 * data_range
+    x_plot_min, x_plot_max = x_center - half_range, x_center + half_range
+    y_plot_min, y_plot_max = y_center - half_range, y_center + half_range
+    z_plot_min, z_plot_max = max(0.0, z_center - half_range), z_center + half_range
+
+    fig = plt.figure(figsize=(8.0, 6.2))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_proj_type("ortho")
+    ax.plot(x, y, z, color="0.12", linewidth=1.6)
+
+    # faint projection anchors the curve to the actual ground track.
+    ax.plot(x, y, np.zeros_like(z), color="0.55", alpha=0.35, linewidth=1.0, linestyle="--")
+    if include_side_projections:
+        ax.plot(x, np.full_like(y, y_plot_max), z, color="0.65", alpha=0.20, linewidth=0.9)
+        ax.plot(np.full_like(x, x_plot_min), y, z, color="0.65", alpha=0.20, linewidth=0.9)
+
+    marker_indices = np.unique(np.round(np.linspace(0, len(time) - 1, 5)).astype(int))
+    for idx in marker_indices:
+        ax.scatter(x[idx], y[idx], z[idx], s=22.0, color="0.12", edgecolors="white", linewidths=0.5)
+
+    ax.scatter(x[0], y[0], z[0], marker="o", s=46.0, color="white", edgecolors="0.05", linewidths=1.2)
+    ax.scatter(x[-1], y[-1], z[-1], marker="x", s=58.0, color="0.05", linewidths=1.6)
+    ax.text(x[0] + 0.03 * data_range, y[0], z[0] - 0.04 * data_range, "start", fontsize=7, color="0.10")
+    ax.text(
+        x[-1] + 0.03 * data_range,
+        y[-1] + 0.04 * data_range,
+        z[-1] + 0.04 * data_range,
+        "touchdown",
+        fontsize=7,
+        color="0.10",
+    )
+    ground_x, ground_y = np.meshgrid(
+        np.linspace(x_plot_min, x_plot_max, 2),
+        np.linspace(y_plot_min, y_plot_max, 2),
+    )
+    ax.plot_wireframe(ground_x, ground_y, np.zeros_like(ground_x), color="0.82", linewidth=0.7, alpha=0.8)
+
+    ax.set_xlim(x_plot_min, x_plot_max)
+    ax.set_ylim(y_plot_min, y_plot_max)
+    ax.set_zlim(z_plot_min, z_plot_max)
+    ax.set_box_aspect((1.0, 1.0, 1.0))
+    ax.view_init(elev=elev_deg, azim=azim_deg)
+    ax.set_xlabel("x [m]", labelpad=14)
+    ax.set_ylabel("y [m]", labelpad=14)
+    ax.set_zlabel("altitude [m]", labelpad=18)
+    ax.set_xticks(np.linspace(x_plot_min, x_plot_max, 5))
+    ax.set_yticks(np.linspace(y_plot_min, y_plot_max, 5))
+    ax.set_zticks(np.linspace(z_plot_min, z_plot_max, 5))
+    if not selected:
+        ax.set_title(f"Supplementary 3D candidate {title_suffix}", pad=12)
+    ax.grid(True, alpha=0.20)
+    for axis in (ax.xaxis, ax.yaxis, ax.zaxis):
+        axis.pane.set_alpha(0.02)
+        axis._axinfo["grid"]["color"] = (0.72, 0.72, 0.72, 0.35)
+        axis._axinfo["grid"]["linewidth"] = 0.6
+    ax.tick_params(labelsize=7, pad=2)
+    path = output_dir / filename
+    fig.tight_layout()
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+    return path
+
+
 def run_dir(input_dir: Path, run_id: str) -> Path:
-    """Return the artifact directory for a run id."""
     return input_dir / "runs" / run_id
 
 
 def plot_nominal_suite(input_dir: Path, output_dir: Path, nominal_run_id: str) -> list[Path]:
-    """Plot trajectory and state histories for the nominal representative run."""
     data = load_trajectory(run_dir(input_dir, nominal_run_id) / "trajectory.csv")
     saved: list[Path] = []
     time = data["time_s"]
     saved.append(save_trajectory_evidence_panel(data, output_dir))
 
-    fig = plt.figure(figsize=(7.0, 5.5))
-    ax = fig.add_subplot(111, projection="3d")
-    ax.set_proj_type("ortho")
-    points = ax.scatter(
-        data["x_m"],
-        data["y_m"],
-        data["z_m"],
-        c=time,
-        s=6.0,
-        label="trajectory",
-    )
-    ax.plot(data["x_m"], data["y_m"], data["z_m"], linewidth=1.0, alpha=0.7)
-    ax.scatter(data["x_m"][0], data["y_m"][0], data["z_m"][0], marker="o", label="start")
-    ax.scatter(data["x_m"][-1], data["y_m"][-1], data["z_m"][-1], marker="x", label="touchdown")
-    ax.text(data["x_m"][0], data["y_m"][0], data["z_m"][0], f" start z={data['z_m'][0]:.0f} m")
-    ax.text(data["x_m"][-1], data["y_m"][-1], data["z_m"][-1], f" touchdown z={data['z_m'][-1]:.0f} m")
-    x_min, x_max = float(np.min(data["x_m"])), float(np.max(data["x_m"]))
-    y_min, y_max = float(np.min(data["y_m"])), float(np.max(data["y_m"]))
-    ground_x, ground_y = np.meshgrid(
-        np.linspace(x_min, x_max, 2),
-        np.linspace(y_min, y_max, 2),
-    )
-    ax.plot_surface(
-        ground_x,
-        ground_y,
-        np.zeros_like(ground_x),
-        alpha=0.15,
-        linewidth=0.0,
-    )
-    ax.set_xlabel("x inertial [m]")
-    ax.set_ylabel("y inertial [m]")
-    ax.set_zlabel("altitude [m]")
-    ax.set_zlim(bottom=0.0, top=max(1.0, float(np.max(data["z_m"]))))
-    ax.view_init(elev=24.0, azim=-58.0)
-    ax.set_title("Supplemental 3D View: Gain-Scheduled LQR Trajectory")
-    ax.legend(loc="best")
-    fig.colorbar(points, ax=ax, shrink=0.65, label="time [s]")
-    path = output_dir / "trajectory_3d.png"
-    fig.tight_layout()
-    fig.savefig(path, dpi=180)
-    plt.close(fig)
-    saved.append(path)
+    saved.append(save_3d_trajectory_view(data, output_dir, "trajectory_3d_candidate_a.png", 18.0, -58.0, "A"))
+    saved.append(save_3d_trajectory_view(data, output_dir, "trajectory_3d_candidate_b.png", 10.0, -88.0, "B"))
+    saved.append(save_3d_trajectory_view(data, output_dir, "trajectory_3d_candidate_c.png", 28.0, -38.0, "C", include_side_projections=True))
+    saved.append(save_3d_trajectory_view(data, output_dir, "trajectory_3d_supplement.png", 12.0, -72.0, "selected", selected=True))
+    saved.append(save_3d_trajectory_view(data, output_dir, "trajectory_3d.png", 12.0, -72.0, "selected", selected=True))
 
     saved.append(save_single_axis(time, [(data["z_m"], "altitude")], "altitude [m]", "Altitude vs Time", output_dir / "altitude_time.png"))
     saved.append(save_single_axis(time, [(data["vz_mps"], "vz")], "vertical velocity [m/s]", "Vertical Velocity vs Time", output_dir / "vertical_velocity_time.png"))
@@ -183,10 +224,8 @@ def plot_nominal_suite(input_dir: Path, output_dir: Path, nominal_run_id: str) -
 
 
 def plot_sweep_summary(input_dir: Path, output_dir: Path) -> list[Path]:
-    """Plot mass and disturbance sweep summaries from aggregate metrics."""
     metrics_rows = load_csv_rows(input_dir / "metrics.csv")
     saved: list[Path] = []
-
     mass_rows = [row for row in metrics_rows if row["group"] == "mass_sweep"]
     fig, ax1 = plt.subplots(figsize=(8.0, 4.8))
     labels = [row["scenario"].replace("mass_", "").replace("kg", "") for row in mass_rows]
@@ -225,7 +264,6 @@ def plot_sweep_summary(input_dir: Path, output_dir: Path) -> list[Path]:
 
 
 def plot_representatives(input_dir: Path, output_dir: Path) -> list[Path]:
-    """Plot representative success and failure cases."""
     with (input_dir / "summary.json").open("r", encoding="utf-8") as stream:
         summary = json.load(stream)
     saved: list[Path] = []
@@ -251,7 +289,6 @@ def plot_representatives(input_dir: Path, output_dir: Path) -> list[Path]:
 
 
 def plot_validation(validation_dir: Path, output_dir: Path) -> list[Path]:
-    """Plot timestep sensitivity from validation artifacts."""
     rows = load_csv_rows(validation_dir / "timestep_sensitivity.csv")
     x = np.array([float(row["dt_s"]) for row in rows], dtype=float)
     speed = np.array([float(row["touchdown_speed_mps"]) for row in rows], dtype=float)
@@ -272,7 +309,7 @@ def plot_validation(validation_dir: Path, output_dir: Path) -> list[Path]:
 
 
 def main() -> None:
-    """CLI entry point."""
+
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     nominal_id = "scenario_table__nominal"

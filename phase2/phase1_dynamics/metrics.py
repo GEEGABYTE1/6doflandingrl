@@ -1,22 +1,15 @@
-"""Touchdown metrics and failure taxonomy for Phase 1 evaluations."""
+"""touchdown metrics and failure taxonomy"""
 
 from __future__ import annotations
-
 from dataclasses import asdict, dataclass
-
 import numpy as np
 from numpy.typing import NDArray
-
 from .quaternion_utils import rotation_matrix_body_to_inertial
-
 
 Array = NDArray[np.float64]
 
-
 @dataclass(frozen=True)
 class SuccessCriteria:
-    """Default touchdown success thresholds for Phase 1 paper tables."""
-
     max_vertical_speed_mps: float = 2.0
     max_horizontal_speed_mps: float = 1.0
     max_lateral_error_m: float = 2.0
@@ -29,24 +22,20 @@ class SuccessCriteria:
     max_saturation_fraction: float = 0.35
 
     def to_dict(self) -> dict[str, float]:
-        """Return JSON-serializable thresholds."""
         return asdict(self)
 
 
 def quaternion_tilt_deg(q_bi: Array) -> float:
-    """Return tilt angle between body ``+z`` and inertial ``+z`` in degrees."""
+    """return tilt angle between body ``+z`` and inertial ``+z`` in degrees."""
     body_z_inertial = rotation_matrix_body_to_inertial(np.asarray(q_bi, dtype=float))[:, 2]
     cos_tilt = float(np.clip(body_z_inertial[2], -1.0, 1.0))
     return float(np.rad2deg(np.arccos(cos_tilt)))
 
-
 def row_tilt_deg(row: dict[str, float]) -> float:
-    """Return tilt angle for a saved trajectory row."""
+    """return tilt angle for a saved trajectory row."""
     return quaternion_tilt_deg(np.array([row["qw"], row["qx"], row["qy"], row["qz"]], dtype=float))
 
-
 def trajectory_arrays(rows: list[dict[str, float]]) -> dict[str, Array]:
-    """Convert trajectory rows into named arrays."""
     if not rows:
         raise ValueError("Trajectory rows must be non-empty.")
     return {
@@ -54,13 +43,11 @@ def trajectory_arrays(rows: list[dict[str, float]]) -> dict[str, Array]:
         for key in rows[0].keys()
     }
 
-
 def touchdown_metrics(
     rows: list[dict[str, float]],
     dry_mass_kg: float,
     criteria: SuccessCriteria | None = None,
 ) -> dict[str, float | str | bool]:
-    """Compute touchdown metrics and classify failure modes."""
     limits = criteria or SuccessCriteria()
     data = trajectory_arrays(rows)
     final = {key: float(values[-1]) for key, values in data.items()}

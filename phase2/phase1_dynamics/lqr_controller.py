@@ -1,37 +1,30 @@
-"""Classical landing baseline based on gain-scheduled hover-trim 6DOF LQR."""
-
+"""landing baseline based on gain-scheduled hover-trim 6dof lqr."""
 from __future__ import annotations
-
 from dataclasses import dataclass, field
-
 import numpy as np
 from numpy.typing import NDArray
 from scipy.linalg import solve_continuous_are
-
 from .propulsion import EngineConfig, TVCCommand
 from .quaternion_utils import attitude_error_vector
 
-
 Array = NDArray[np.float64]
-
 
 def hover_trim_linearization(
     engine: EngineConfig,
     nominal_mass_kg: float,
     inertia_body_kgm2: Array,
 ) -> tuple[Array, Array]:
-    """Return continuous-time small-error matrices around upright hover trim.
-
-    The error state is ``[r_I, v_I, eta_BI, omega_B]`` where ``eta_BI`` is the
+    """will return continuous-time small-error matrices around upright hover trim.
+    the error state is ``[r_I, v_I, eta_BI, omega_B]`` where ``eta_BI`` is the
     small rotation vector associated with the body-to-inertial quaternion. The
     control perturbation is ``[delta_throttle, pitch_gimbal, yaw_gimbal]``.
 
-    Small-angle equations used here:
-    ``ax ~= g * (theta + pitch_gimbal)``,
-    ``ay ~= g * (yaw_gimbal - phi)``,
-    ``az ~= (Tmax / m) * delta_throttle``,
-    ``pdot ~= L * T_hover / Ixx * yaw_gimbal``,
-    ``qdot ~= -L * T_hover / Iyy * pitch_gimbal``.
+    Small-angle equations i will use here:
+    ``ax = g * (theta + pitch_gimbal)``,
+    ``ay = g * (yaw_gimbal - phi)``,
+    ``az = (Tmax / m) * delta_throttle``,
+    ``pdot = L * T_hover / Ixx * yaw_gimbal``,
+    ``qdot = -L * T_hover / Iyy * pitch_gimbal``.
     """
     mass = float(nominal_mass_kg)
     hover_thrust = mass * engine.standard_gravity_mps2
@@ -41,20 +34,17 @@ def hover_trim_linearization(
     a[0:3, 3:6] = np.eye(3)
     a[6:9, 9:12] = np.eye(3)
 
-    # Translational coupling from attitude near upright hover.
+    # translational coupling from attitude near upright hover.
     a[3, 7] = engine.standard_gravity_mps2
     a[4, 6] = -engine.standard_gravity_mps2
-
     b[3, 1] = engine.standard_gravity_mps2
     b[4, 2] = engine.standard_gravity_mps2
     b[5, 0] = engine.max_thrust_n / mass
-
     ixx = float(inertia_body_kgm2[0, 0])
     iyy = float(inertia_body_kgm2[1, 1])
     b[9, 2] = engine.lever_arm_m * hover_thrust / ixx
     b[10, 1] = -engine.lever_arm_m * hover_thrust / iyy
     return a, b
-
 
 def hover_trim_lqr_gain(
     engine: EngineConfig,
@@ -63,11 +53,10 @@ def hover_trim_lqr_gain(
     q_weights: Array,
     r_weights: Array,
 ) -> Array:
-    """Solve the hover-trim LQR on the controllable TVC state subset.
-
-    A single centered TVC engine controls pitch and roll moments through thrust
+    """this will solve the hover-trim LQR on the controllable TVC state subset.
+    a single centered TVC engine controls pitch and roll moments through thrust
     vectoring, but it does not generate moment about body ``+z``. The yaw angle
-    and yaw rate states are therefore kept in the public 12-state model with
+    and yaw rate states are thus kept in the public 12-state model with
     zero feedback gains rather than forcing an invalid Riccati solve.
     """
     a_full, b_full = hover_trim_linearization(engine, nominal_mass_kg, inertia_body_kgm2)
@@ -82,27 +71,20 @@ def hover_trim_lqr_gain(
     full_gain[:, controlled_indices] = reduced_gain
     return full_gain
 
-
 @dataclass(frozen=True)
 class LandingTarget:
-    """Desired terminal landing state."""
-
     position_inertial_m: Array = field(default_factory=lambda: np.zeros(3, dtype=float))
     velocity_inertial_mps: Array = field(default_factory=lambda: np.zeros(3, dtype=float))
 
-
 @dataclass
 class HoverTrimLQRController:
-    """Full hover-trim 6DOF LQR baseline for vertical landing.
-
-    The controller is designed from a small-angle hover linearization of the
+    """full hover-trim 6dof lqr baseline for vertical landing. the controller is designed from a small-angle hover linearization of the
     6DOF rocket dynamics. It tracks a descent-rate reference in the vertical
-    channel and zero lateral displacement at the pad. This is a stronger
+    channel and zero lateral displacement at the pad. this is a stronger
     classical baseline than the previous decoupled controller, while still
     documenting the key approximation: the gain is a local hover-trim gain, not
     a time-varying LQR along a full fuel-varying descent trajectory.
     """
-
     engine: EngineConfig = field(default_factory=EngineConfig)
     target: LandingTarget = field(default_factory=LandingTarget)
     nominal_mass_kg: float = 1_150.0
@@ -139,7 +121,6 @@ class HoverTrimLQRController:
     gain: Array = field(init=False)
 
     def __post_init__(self) -> None:
-        """Solve the continuous-time LQR problem for the hover trim."""
         self.gain = hover_trim_lqr_gain(
             self.engine,
             self.nominal_mass_kg,
@@ -149,7 +130,6 @@ class HoverTrimLQRController:
         )
 
     def command(self, time_s: float, state: Array) -> TVCCommand:
-        """Compute a TVC command from the current simulator state."""
         del time_s
         position = np.asarray(state[0:3], dtype=float)
         velocity = np.asarray(state[3:6], dtype=float)
@@ -158,9 +138,8 @@ class HoverTrimLQRController:
         mass = float(state[13])
 
         altitude = max(0.0, float(position[2] - self.target.position_inertial_m[2]))
-        # Energy-based descent profile: v_ref^2 = v_touch^2 + 2*a_brake*h.
-        # This permits a fast initial descent and commands braking only as the
-        # remaining altitude makes it necessary, avoiding hover-like fuel waste.
+        # energy-based descent profile: v_ref^2 = v_touch^2 + 2*a_brake*h.
+        # this permits a fast initial descent and commands braking only as the remaining altitude makes it necessary, avoiding hover-like fuel waste.
         desired_speed = np.sqrt(
             self.terminal_descent_rate_mps * self.terminal_descent_rate_mps
             + 2.0 * self.energy_braking_accel_mps2 * altitude
@@ -201,16 +180,10 @@ class HoverTrimLQRController:
             yaw_rad=float(np.clip(yaw, -self.command_gimbal_limit_rad, self.command_gimbal_limit_rad)),
         )
 
-
 @dataclass
 class GainScheduledLQRController(HoverTrimLQRController):
-    """Mass gain-scheduled hover-trim LQR controller.
-
-    Gains are precomputed over a fixed mass grid and linearly interpolated at
-    runtime from the current simulator mass. The state and command interface is
-    identical to ``HoverTrimLQRController`` so future RL wrappers can reuse the
-    same environment/controller boundary.
-    """
+    """mass gain-scheduled hover-trim lqr controller. gains are precomputed over a fixed mass grid and linearly interpolated at
+    runtime from the current simulator mass."""
 
     mass_grid_kg: Array = field(
         default_factory=lambda: np.array([900.0, 1_000.0, 1_100.0, 1_200.0, 1_300.0], dtype=float)
@@ -218,7 +191,7 @@ class GainScheduledLQRController(HoverTrimLQRController):
     gain_grid: Array = field(init=False)
 
     def __post_init__(self) -> None:
-        """Precompute hover-trim LQR gains on the configured mass grid."""
+        """precomputing hover-trim lqr gains on the configured mass grid."""
         masses = np.asarray(self.mass_grid_kg, dtype=float)
         if masses.ndim != 1 or masses.size < 2 or np.any(np.diff(masses) <= 0.0):
             raise ValueError("mass_grid_kg must be a strictly increasing 1D array.")
@@ -238,7 +211,6 @@ class GainScheduledLQRController(HoverTrimLQRController):
         self.gain = self._interpolated_gain(self.nominal_mass_kg)
 
     def _interpolated_gain(self, mass_kg: float) -> Array:
-        """Return a linearly interpolated feedback gain for the current mass."""
         masses = np.asarray(self.mass_grid_kg, dtype=float)
         mass = float(np.clip(mass_kg, masses[0], masses[-1]))
         if mass <= masses[0]:
@@ -251,9 +223,8 @@ class GainScheduledLQRController(HoverTrimLQRController):
         return (1.0 - alpha) * self.gain_grid[lower] + alpha * self.gain_grid[upper]
 
     def command(self, time_s: float, state: Array) -> TVCCommand:
-        """Compute a TVC command using the gain interpolated at current mass."""
+        """computing a TVC command"""
         self.gain = self._interpolated_gain(float(state[13]))
         return super().command(time_s, state)
-
 
 SimplifiedLQRController = GainScheduledLQRController
