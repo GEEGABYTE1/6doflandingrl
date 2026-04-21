@@ -71,6 +71,48 @@ def save_single_axis(
     return path
 
 
+def save_trajectory_evidence_panel(data: dict[str, np.ndarray], output_dir: Path) -> Path:
+    """Save the primary paper-facing figure proving touchdown behavior."""
+    time = data["time_s"]
+    lateral_error = np.hypot(data["x_m"], data["y_m"])
+    downrange = np.hypot(data["x_m"] - data["x_m"][0], data["y_m"] - data["y_m"][0])
+
+    fig, axes = plt.subplots(2, 2, figsize=(10.0, 7.2))
+    axes[0, 0].plot(time, data["z_m"])
+    axes[0, 0].scatter(time[0], data["z_m"][0], label=f"start z={data['z_m'][0]:.1f} m")
+    axes[0, 0].scatter(time[-1], data["z_m"][-1], label=f"touchdown z={data['z_m'][-1]:.1f} m")
+    axes[0, 0].set_ylabel("altitude [m]")
+    axes[0, 0].set_title("Altitude")
+    axes[0, 0].legend(loc="best")
+
+    axes[0, 1].plot(time, data["vz_mps"])
+    axes[0, 1].axhline(0.0, linewidth=0.8)
+    axes[0, 1].set_ylabel("vertical velocity [m/s]")
+    axes[0, 1].set_title("Vertical Velocity")
+
+    axes[1, 0].plot(time, lateral_error)
+    axes[1, 0].set_xlabel("time [s]")
+    axes[1, 0].set_ylabel("lateral error [m]")
+    axes[1, 0].set_title("Lateral Error")
+
+    axes[1, 1].plot(downrange, data["z_m"])
+    axes[1, 1].scatter(downrange[0], data["z_m"][0], label="start")
+    axes[1, 1].scatter(downrange[-1], data["z_m"][-1], label="touchdown")
+    axes[1, 1].set_xlabel("ground-track distance [m]")
+    axes[1, 1].set_ylabel("altitude [m]")
+    axes[1, 1].set_title("Side View")
+    axes[1, 1].legend(loc="best")
+
+    for ax in axes.ravel():
+        ax.grid(True, alpha=0.3)
+    fig.suptitle("Phase 1 Representative Landing Evidence")
+    fig.tight_layout()
+    path = output_dir / "trajectory_evidence_panel.png"
+    fig.savefig(path, dpi=180)
+    plt.close(fig)
+    return path
+
+
 def run_dir(input_dir: Path, run_id: str) -> Path:
     """Return the artifact directory for a run id."""
     return input_dir / "runs" / run_id
@@ -81,14 +123,45 @@ def plot_nominal_suite(input_dir: Path, output_dir: Path, nominal_run_id: str) -
     data = load_trajectory(run_dir(input_dir, nominal_run_id) / "trajectory.csv")
     saved: list[Path] = []
     time = data["time_s"]
+    saved.append(save_trajectory_evidence_panel(data, output_dir))
 
     fig = plt.figure(figsize=(7.0, 5.5))
     ax = fig.add_subplot(111, projection="3d")
-    ax.plot(data["x_m"], data["y_m"], data["z_m"])
+    ax.set_proj_type("ortho")
+    points = ax.scatter(
+        data["x_m"],
+        data["y_m"],
+        data["z_m"],
+        c=time,
+        s=6.0,
+        label="trajectory",
+    )
+    ax.plot(data["x_m"], data["y_m"], data["z_m"], linewidth=1.0, alpha=0.7)
+    ax.scatter(data["x_m"][0], data["y_m"][0], data["z_m"][0], marker="o", label="start")
+    ax.scatter(data["x_m"][-1], data["y_m"][-1], data["z_m"][-1], marker="x", label="touchdown")
+    ax.text(data["x_m"][0], data["y_m"][0], data["z_m"][0], f" start z={data['z_m'][0]:.0f} m")
+    ax.text(data["x_m"][-1], data["y_m"][-1], data["z_m"][-1], f" touchdown z={data['z_m'][-1]:.0f} m")
+    x_min, x_max = float(np.min(data["x_m"])), float(np.max(data["x_m"]))
+    y_min, y_max = float(np.min(data["y_m"])), float(np.max(data["y_m"]))
+    ground_x, ground_y = np.meshgrid(
+        np.linspace(x_min, x_max, 2),
+        np.linspace(y_min, y_max, 2),
+    )
+    ax.plot_surface(
+        ground_x,
+        ground_y,
+        np.zeros_like(ground_x),
+        alpha=0.15,
+        linewidth=0.0,
+    )
     ax.set_xlabel("x inertial [m]")
     ax.set_ylabel("y inertial [m]")
     ax.set_zlabel("altitude [m]")
-    ax.set_title("Phase 1 Gain-Scheduled LQR 3D Trajectory")
+    ax.set_zlim(bottom=0.0, top=max(1.0, float(np.max(data["z_m"]))))
+    ax.view_init(elev=24.0, azim=-58.0)
+    ax.set_title("Supplemental 3D View: Gain-Scheduled LQR Trajectory")
+    ax.legend(loc="best")
+    fig.colorbar(points, ax=ax, shrink=0.65, label="time [s]")
     path = output_dir / "trajectory_3d.png"
     fig.tight_layout()
     fig.savefig(path, dpi=180)

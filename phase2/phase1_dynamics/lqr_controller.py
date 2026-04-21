@@ -131,9 +131,9 @@ class HoverTrimLQRController:
     r_weights: Array = field(
         default_factory=lambda: np.array([0.8, 35.0, 35.0], dtype=float)
     )
-    glide_slope_gain: float = 0.075
-    min_descent_rate_mps: float = 0.6
-    max_descent_rate_mps: float = 7.0
+    terminal_descent_rate_mps: float = 0.6
+    energy_braking_accel_mps2: float = 2.5
+    max_descent_rate_mps: float = 45.0
     max_throttle_delta: float = 0.55
     command_gimbal_limit_rad: float = np.deg2rad(8.0)
     gain: Array = field(init=False)
@@ -158,12 +158,15 @@ class HoverTrimLQRController:
         mass = float(state[13])
 
         altitude = max(0.0, float(position[2] - self.target.position_inertial_m[2]))
+        # Energy-based descent profile: v_ref^2 = v_touch^2 + 2*a_brake*h.
+        # This permits a fast initial descent and commands braking only as the
+        # remaining altitude makes it necessary, avoiding hover-like fuel waste.
+        desired_speed = np.sqrt(
+            self.terminal_descent_rate_mps * self.terminal_descent_rate_mps
+            + 2.0 * self.energy_braking_accel_mps2 * altitude
+        )
         desired_vz = -float(
-            np.clip(
-                self.glide_slope_gain * altitude + self.min_descent_rate_mps,
-                self.min_descent_rate_mps,
-                self.max_descent_rate_mps,
-            )
+            np.clip(desired_speed, self.terminal_descent_rate_mps, self.max_descent_rate_mps)
         )
         reference_position = np.array(
             [

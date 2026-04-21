@@ -111,6 +111,7 @@ def touchdown_metrics(
     return {
         "success": len(failure_modes) == 0,
         "failure_modes": "none" if not failure_modes else ";".join(failure_modes),
+        "yaw_excluded_from_success_criteria": True,
         "touchdown_time_s": final["time_s"],
         "vertical_touchdown_velocity_mps": final["vz_mps"],
         "horizontal_touchdown_velocity_mps": horizontal_speed,
@@ -126,4 +127,3 @@ def touchdown_metrics(
         "oscillation_count": float(oscillation_count),
         "final_altitude_m": final["z_m"],
     }
-

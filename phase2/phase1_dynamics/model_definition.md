@@ -66,6 +66,12 @@ For hover-trim LQR design, the small-angle control model uses
 
 `qdot ~= -L T_hover delta_p / Iyy`.
 
+The vertical reference uses an energy-based braking profile:
+
+`v_z,ref = -sqrt(v_touch^2 + 2 a_brake h)`,
+
+clipped by the configured maximum descent rate. This gives a fast coast/brake descent rather than a hover-like glide slope. The default values are `v_touch = 0.6 m/s` and `a_brake = 2.5 m/s^2`.
+
 ## Atmosphere, Aerodynamics, Disturbances
 
 Atmosphere uses a simplified ISA troposphere to 11 km with exponential continuation above that altitude.
@@ -100,4 +106,3 @@ Failure modes are classified as hard touchdown, horizontal speed, lateral miss, 
 ## Yaw Underactuation
 
 A single centered TVC engine cannot create moment about body `+z_B`. Yaw angle and yaw rate are therefore measured, reported, and included in the public 12-state LQR error vector, but excluded from the Riccati solve with zero feedback gains. Yaw-related behavior is not hidden in evaluation tables; it is reported through attitude, angular-rate, and failure metrics.
-

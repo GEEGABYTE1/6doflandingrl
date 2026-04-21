@@ -108,6 +108,7 @@ def run_closed_loop(
     state = scenario.initial_state(seed) if scenario is not None else initial_state(seed)
     rows: list[dict[str, float]] = []
     steps = int(np.ceil(duration_s / dt_s))
+    termination_reason = "timeout"
 
     for step in range(steps + 1):
         time_s = step * dt_s
@@ -139,6 +140,7 @@ def run_closed_loop(
         )
         if state[2] <= 0.0 and step > 0:
             state[2] = 0.0
+            termination_reason = "touchdown"
             break
 
         def derivative(local_time: float, local_state: np.ndarray) -> np.ndarray:
@@ -152,6 +154,9 @@ def run_closed_loop(
     metrics = touchdown_metrics(rows, dynamics.rocket.dry_mass_kg)
     metrics["seed"] = float(seed)
     metrics["duration_s"] = float(rows[-1]["time_s"])
+    metrics["requested_duration_s"] = float(duration_s)
+    metrics["termination_reason"] = termination_reason
+    metrics["touchdown_detected"] = termination_reason == "touchdown"
     metrics["final_downrange_error_m"] = float(metrics["landing_position_error_m"])
     metrics["final_speed_mps"] = float(metrics["touchdown_speed_mps"])
     return rows, metrics
