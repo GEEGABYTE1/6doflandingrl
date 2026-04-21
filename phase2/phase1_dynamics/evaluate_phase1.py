@@ -1,7 +1,6 @@
-"""Run Phase 1 mass, disturbance, and scenario evaluations."""
+"""evaluating the phase with the disturbances, aero, atmosphere"""
 
 from __future__ import annotations
-
 import argparse
 import csv
 import json
@@ -26,7 +25,6 @@ else:
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--seed", type=int, default=7, help="Deterministic seed for all scenarios.")
     parser.add_argument(
@@ -39,7 +37,6 @@ def parse_args() -> argparse.Namespace:
 
 
 def write_csv(path: Path, rows: list[dict[str, object]]) -> None:
-    """Write dictionaries to CSV with stable columns."""
     if not rows:
         raise ValueError(f"Cannot write empty CSV: {path}")
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,7 +53,6 @@ def run_one(
     seed: int,
     output_dir: Path,
 ) -> dict[str, object]:
-    """Run one scenario, save artifacts, and return aggregate metrics."""
     run_id = f"{group}__{scenario.name}"
     run_dir = output_dir / "runs" / run_id
     rows, metrics = run_closed_loop(
@@ -88,9 +84,7 @@ def run_one(
         )
     return enriched
 
-
 def scenario_table_rows(scenarios: list[ScenarioConfig]) -> list[dict[str, object]]:
-    """Return a compact table describing all named scenarios."""
     return [
         {
             "scenario": item.name,
@@ -107,7 +101,6 @@ def scenario_table_rows(scenarios: list[ScenarioConfig]) -> list[dict[str, objec
 
 
 def failure_taxonomy_rows(metrics_rows: list[dict[str, object]]) -> list[dict[str, object]]:
-    """Summarize observed failure modes across the configured evaluation suite."""
     counter: Counter[str] = Counter()
     for row in metrics_rows:
         modes = str(row["failure_modes"]).split(";")
@@ -138,7 +131,6 @@ def failure_taxonomy_rows(metrics_rows: list[dict[str, object]]) -> list[dict[st
 
 
 def main() -> None:
-    """CLI entry point."""
     args = parse_args()
     args.output_dir.mkdir(parents=True, exist_ok=True)
     scenario_set = named_scenarios()
