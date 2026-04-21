@@ -21,19 +21,23 @@ if __package__ in {None, ""}:
         WindModel,
     )
     from phase1_dynamics.integrator import rk4_step
-    from phase1_dynamics.lqr_controller import SimplifiedLQRController
+    from phase1_dynamics.lqr_controller import GainScheduledLQRController
+    from phase1_dynamics.metrics import quaternion_tilt_deg, touchdown_metrics
     from phase1_dynamics.propulsion import EngineConfig, PropulsionModel
     from phase1_dynamics.quaternion_utils import normalize_quaternion
     from phase1_dynamics.rigid_body import RocketConfig, RocketDynamics
+    from phase1_dynamics.scenarios import ScenarioConfig
 else:
     from .aero import AerodynamicModel
     from .atmosphere import ISAAtmosphere
     from .disturbances import DisturbanceModel, SensorNoiseModel, ThrustMisalignmentModel, WindModel
     from .integrator import rk4_step
-    from .lqr_controller import SimplifiedLQRController
+    from .lqr_controller import GainScheduledLQRController
+    from .metrics import quaternion_tilt_deg, touchdown_metrics
     from .propulsion import EngineConfig, PropulsionModel
     from .quaternion_utils import normalize_quaternion
     from .rigid_body import RocketConfig, RocketDynamics
+    from .scenarios import ScenarioConfig
 
 
 def parse_args() -> argparse.Namespace:
@@ -65,21 +69,24 @@ def initial_state(seed: int) -> np.ndarray:
     return state
 
 
-def build_dynamics(seed: int) -> RocketDynamics:
+def build_dynamics(seed: int, scenario: ScenarioConfig | None = None) -> RocketDynamics:
     """Assemble the Phase 1 dynamics model."""
     engine_config = EngineConfig()
-    disturbances = DisturbanceModel(
-        wind=WindModel(
-            steady_wind_inertial_mps=np.array([1.5, -0.5, 0.0], dtype=float),
-            gust_amplitude_mps=np.array([0.4, 0.2, 0.0], dtype=float),
-            gust_frequency_hz=0.08,
-        ),
-        thrust_misalignment=ThrustMisalignmentModel(
-            pitch_bias_rad=np.deg2rad(0.15),
-            yaw_bias_rad=np.deg2rad(-0.10),
-        ),
-        sensor_noise=SensorNoiseModel(seed=seed),
-    )
+    if scenario is None:
+        disturbances = DisturbanceModel(
+            wind=WindModel(
+                steady_wind_inertial_mps=np.array([1.5, -0.5, 0.0], dtype=float),
+                gust_amplitude_mps=np.array([0.4, 0.2, 0.0], dtype=float),
+                gust_frequency_hz=0.08,
+            ),
+            thrust_misalignment=ThrustMisalignmentModel(
+                pitch_bias_rad=np.deg2rad(0.15),
+                yaw_bias_rad=np.deg2rad(-0.10),
+            ),
+            sensor_noise=SensorNoiseModel(seed=seed),
+        )
+    else:
+        disturbances = scenario.disturbances(seed)
     return RocketDynamics(
         rocket=RocketConfig(dry_mass_kg=engine_config.dry_mass_kg),
         atmosphere=ISAAtmosphere(),
@@ -89,11 +96,16 @@ def build_dynamics(seed: int) -> RocketDynamics:
     )
 
 
-def run_simulation(seed: int, duration_s: float, dt_s: float) -> tuple[list[dict[str, float]], dict[str, float]]:
+def run_closed_loop(
+    seed: int,
+    duration_s: float,
+    dt_s: float,
+    scenario: ScenarioConfig | None = None,
+) -> tuple[list[dict[str, float]], dict[str, float]]:
     """Run the closed-loop simulation and return trajectory rows plus metrics."""
-    dynamics = build_dynamics(seed)
-    controller = SimplifiedLQRController(engine=dynamics.propulsion.config)
-    state = initial_state(seed)
+    dynamics = build_dynamics(seed, scenario)
+    controller = GainScheduledLQRController(engine=dynamics.propulsion.config)
+    state = scenario.initial_state(seed) if scenario is not None else initial_state(seed)
     rows: list[dict[str, float]] = []
     steps = int(np.ceil(duration_s / dt_s))
 
@@ -121,6 +133,7 @@ def run_simulation(seed: int, duration_s: float, dt_s: float) -> tuple[list[dict
                 "throttle": command.throttle,
                 "gimbal_pitch_rad": command.pitch_rad,
                 "gimbal_yaw_rad": command.yaw_rad,
+                "tilt_deg": quaternion_tilt_deg(state[6:10]),
                 "dynamic_pressure_pa": diagnostics.dynamic_pressure_pa,
             }
         )
@@ -136,19 +149,17 @@ def run_simulation(seed: int, duration_s: float, dt_s: float) -> tuple[list[dict
         if state[2] < 0.0:
             state[2] = 0.0
 
-    final = rows[-1]
-    landing_speed = float(np.linalg.norm([final["vx_mps"], final["vy_mps"], final["vz_mps"]]))
-    metrics = {
-        "seed": float(seed),
-        "duration_s": float(rows[-1]["time_s"]),
-        "final_altitude_m": float(final["z_m"]),
-        "final_downrange_error_m": float(np.linalg.norm([final["x_m"], final["y_m"]])),
-        "final_speed_mps": landing_speed,
-        "final_mass_kg": float(final["mass_kg"]),
-        "fuel_used_kg": float(rows[0]["mass_kg"] - final["mass_kg"]),
-        "max_dynamic_pressure_pa": float(max(row["dynamic_pressure_pa"] for row in rows)),
-    }
+    metrics = touchdown_metrics(rows, dynamics.rocket.dry_mass_kg)
+    metrics["seed"] = float(seed)
+    metrics["duration_s"] = float(rows[-1]["time_s"])
+    metrics["final_downrange_error_m"] = float(metrics["landing_position_error_m"])
+    metrics["final_speed_mps"] = float(metrics["touchdown_speed_mps"])
     return rows, metrics
+
+
+def run_simulation(seed: int, duration_s: float, dt_s: float) -> tuple[list[dict[str, float]], dict[str, float]]:
+    """Run the default nominal simulation and return trajectory rows plus metrics."""
+    return run_closed_loop(seed=seed, duration_s=duration_s, dt_s=dt_s, scenario=None)
 
 
 def save_outputs(rows: list[dict[str, float]], metrics: dict[str, float], output_dir: Path) -> None:

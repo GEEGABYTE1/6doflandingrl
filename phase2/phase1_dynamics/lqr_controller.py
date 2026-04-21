@@ -1,4 +1,4 @@
-"""Classical landing baseline based on hover-trim 6DOF LQR."""
+"""Classical landing baseline based on gain-scheduled hover-trim 6DOF LQR."""
 
 from __future__ import annotations
 
@@ -199,4 +199,58 @@ class HoverTrimLQRController:
         )
 
 
-SimplifiedLQRController = HoverTrimLQRController
+@dataclass
+class GainScheduledLQRController(HoverTrimLQRController):
+    """Mass gain-scheduled hover-trim LQR controller.
+
+    Gains are precomputed over a fixed mass grid and linearly interpolated at
+    runtime from the current simulator mass. The state and command interface is
+    identical to ``HoverTrimLQRController`` so future RL wrappers can reuse the
+    same environment/controller boundary.
+    """
+
+    mass_grid_kg: Array = field(
+        default_factory=lambda: np.array([900.0, 1_000.0, 1_100.0, 1_200.0, 1_300.0], dtype=float)
+    )
+    gain_grid: Array = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Precompute hover-trim LQR gains on the configured mass grid."""
+        masses = np.asarray(self.mass_grid_kg, dtype=float)
+        if masses.ndim != 1 or masses.size < 2 or np.any(np.diff(masses) <= 0.0):
+            raise ValueError("mass_grid_kg must be a strictly increasing 1D array.")
+        self.gain_grid = np.stack(
+            [
+                hover_trim_lqr_gain(
+                    self.engine,
+                    float(mass),
+                    self.inertia_body_kgm2,
+                    self.q_weights,
+                    self.r_weights,
+                )
+                for mass in masses
+            ],
+            axis=0,
+        )
+        self.gain = self._interpolated_gain(self.nominal_mass_kg)
+
+    def _interpolated_gain(self, mass_kg: float) -> Array:
+        """Return a linearly interpolated feedback gain for the current mass."""
+        masses = np.asarray(self.mass_grid_kg, dtype=float)
+        mass = float(np.clip(mass_kg, masses[0], masses[-1]))
+        if mass <= masses[0]:
+            return self.gain_grid[0]
+        if mass >= masses[-1]:
+            return self.gain_grid[-1]
+        upper = int(np.searchsorted(masses, mass, side="right"))
+        lower = upper - 1
+        alpha = (mass - masses[lower]) / (masses[upper] - masses[lower])
+        return (1.0 - alpha) * self.gain_grid[lower] + alpha * self.gain_grid[upper]
+
+    def command(self, time_s: float, state: Array) -> TVCCommand:
+        """Compute a TVC command using the gain interpolated at current mass."""
+        self.gain = self._interpolated_gain(float(state[13]))
+        return super().command(time_s, state)
+
+
+SimplifiedLQRController = GainScheduledLQRController
