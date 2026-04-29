@@ -1,0 +1,11 @@
+{
+  "curriculum_enabled": true,
+  "curriculum_profile": "baseline_v1",
+  "model_path": "outputs/phase2b_hierarchical_rl/tvc_seed7_50k_flare_tracking_v1/model.zip",
+  "ppo_profile": "baseline_default",
+  "reward_profile": "baseline_v1",
+  "seed": 7,
+  "staged_wind_enabled": true,
+  "throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_40k_flare_tracking_v1/model.zip",
+  "total_timesteps": 50000
+}

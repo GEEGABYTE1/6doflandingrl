@@ -1,0 +1,23 @@
+{
+  "angular_rate_norm_radps": 0.15447718789292775,
+  "duration_s": 6.349999999999985,
+  "failure_modes": "hard_touchdown;horizontal_speed;lateral_miss",
+  "final_altitude_m": 0.0,
+  "final_mass_kg": 1223.3644551421462,
+  "fuel_margin_kg": 373.3644551421462,
+  "fuel_used_kg": 26.6355448578538,
+  "horizontal_touchdown_velocity_mps": 8.374337464918552,
+  "landing_position_error_m": 33.430352679297165,
+  "max_dynamic_pressure_pa": 285.25356094415713,
+  "oscillation_count": 0.0,
+  "saturation_fraction": 0.0,
+  "seed": 7.0,
+  "success": false,
+  "termination_reason": "touchdown",
+  "tilt_angle_deg": 4.731389180562232,
+  "touchdown_detected": true,
+  "touchdown_speed_mps": 21.7387746417024,
+  "touchdown_time_s": 6.349999999999985,
+  "vertical_touchdown_velocity_mps": -20.06102676700235,
+  "yaw_excluded_from_success_criteria": true
+}

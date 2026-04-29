@@ -1,0 +1,78 @@
+{
+  "curriculum_profile": "baseline_v1",
+  "ppo_profile": "baseline_default",
+  "ppo_profile_config": {
+    "batch_size": 256,
+    "ent_coef": 0.005,
+    "gae_lambda": 0.98,
+    "gamma": 0.995,
+    "learning_rate": 0.0003,
+    "linear_schedule": false,
+    "n_steps": 2048,
+    "name": "baseline_default"
+  },
+  "reward_profile": "baseline_v1",
+  "scenario": "nominal",
+  "seed": 7,
+  "throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_40k_flare_tracking_v1/model.zip",
+  "total_timesteps": 50000,
+  "tvc_env_config": {
+    "coordination_features": {
+      "braking_accel_mps2": 1.5,
+      "dt_s": 0.05,
+      "flare_altitude_scale_m": 30.0,
+      "terminal_descent_rate_mps": 0.8,
+      "throttle_delta_limit": 0.35,
+      "vertical_speed_scale_mps": 40.0
+    },
+    "curriculum_bounds": {
+      "max_altitude_m": 120.0,
+      "max_attitude_error_deg": 1.5,
+      "max_gust_mps": 0.2,
+      "max_lateral_offset_m": 12.0,
+      "max_misalignment_deg": 0.1,
+      "max_wind_mps": 1.0,
+      "min_altitude_m": 20.0,
+      "min_attitude_error_deg": 0.2,
+      "min_gust_mps": 0.0,
+      "min_lateral_offset_m": 0.5,
+      "min_misalignment_deg": 0.0,
+      "min_wind_mps": 0.0
+    },
+    "curriculum_enabled": true,
+    "dt_s": 0.05,
+    "max_duration_s": 30.0,
+    "reward_weights": {
+      "angular_rate": 0.16,
+      "control_effort": 0.03,
+      "divergence_penalty": 320.0,
+      "horizontal_speed": 1.1,
+      "lateral_error": 1.25,
+      "lateral_progress": 0.0,
+      "outward_velocity": 0.0,
+      "success_bonus": 450.0,
+      "terminal_horizontal_speed": 12.0,
+      "terminal_lateral_error": 12.0,
+      "terminal_tilt": 4.0,
+      "terminal_vertical_speed": 2.0,
+      "tilt": 0.3,
+      "timeout_penalty": 220.0,
+      "touchdown_failure_penalty": 180.0,
+      "vertical_speed_coupling": 0.15
+    },
+    "scenario_name": "nominal",
+    "staged_wind_enabled": true,
+    "success_criteria": {
+      "max_angular_rate_radps": 0.5,
+      "max_final_altitude_m": 0.05,
+      "max_horizontal_speed_mps": 1.0,
+      "max_lateral_error_m": 2.0,
+      "max_position_norm_m": 10000.0,
+      "max_saturation_fraction": 0.35,
+      "max_speed_norm_mps": 1000.0,
+      "max_tilt_deg": 10.0,
+      "max_vertical_speed_mps": 2.0,
+      "min_fuel_margin_kg": 1.0
+    }
+  }
+}

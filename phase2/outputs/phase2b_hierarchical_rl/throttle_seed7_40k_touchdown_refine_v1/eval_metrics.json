@@ -1,0 +1,10 @@
+{
+  "final_altitude_m": 0.0,
+  "final_mass_kg": 1205.5974978984357,
+  "fuel_margin_kg": 355.5974978984357,
+  "fuel_used_kg": 44.40250210156432,
+  "success": false,
+  "termination_reason": "touchdown",
+  "touchdown_time_s": 9.249999999999996,
+  "vertical_touchdown_velocity_mps": -7.634900058283816
+}

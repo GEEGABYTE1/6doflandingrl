@@ -1,0 +1,27 @@
+{
+  "best_candidate": {
+    "angular_rate_norm_radps": 0.002028383481658012,
+    "failure_modes": "hard_touchdown",
+    "full_scale_mps": 3.0,
+    "gate_altitude_m": 22.0,
+    "gate_power": 1.5,
+    "horizontal_touchdown_velocity_mps": 0.048505168939380776,
+    "label": "overspeed_assist_focus_blended",
+    "landing_position_error_m": 0.1214814363546394,
+    "late_stage_altitude_m": 4.0,
+    "late_stage_extra_delta": 0.1,
+    "max_delta": 0.16,
+    "success": false,
+    "tilt_angle_deg": 0.08636230438211524,
+    "trigger_mps": 0.25,
+    "vertical_touchdown_velocity_mps": -4.113545932795983
+  },
+  "curriculum_profile": "baseline_v1",
+  "ppo_profile": "baseline_default",
+  "reward_profile": "vertical_focus_v1",
+  "scenario": "nominal",
+  "seed": 7,
+  "sweep_profile": "focused_v2",
+  "throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_40k_touchdown_gate_commit_v1/model.zip",
+  "total_timesteps": 50000
+}

@@ -1,0 +1,16 @@
+{
+  "failure_modes": "none",
+  "final_altitude_m": 0.0,
+  "final_angular_rate_norm_radps": 0.0019356172397300838,
+  "final_horizontal_velocity_mps": 0.04010331709429201,
+  "final_tilt_deg": 0.11121061354571216,
+  "final_vertical_velocity_mps": -0.6542858510416673,
+  "initial_altitude_m": 120.0,
+  "max_altitude_m": 120.0,
+  "metrics": "outputs/phase1_evaluation/runs/scenario_table__nominal/metrics.json",
+  "success": true,
+  "termination_reason": "touchdown",
+  "touchdown_detected": true,
+  "trajectory": "outputs/phase1_evaluation/runs/scenario_table__nominal/trajectory.csv",
+  "yaw_excluded_from_success_criteria": true
+}

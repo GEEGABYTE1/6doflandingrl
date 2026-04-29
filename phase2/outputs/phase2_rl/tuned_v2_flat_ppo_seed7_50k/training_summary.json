@@ -1,0 +1,6 @@
+{
+  "curriculum_enabled": true,
+  "model_path": "outputs/phase2_rl/tuned_v2_flat_ppo_seed7_50k/model.zip",
+  "seed": 7,
+  "total_timesteps": 50000
+}

@@ -1,0 +1,3 @@
+label,success,failure_modes,vertical_touchdown_velocity_mps,horizontal_touchdown_velocity_mps,landing_position_error_m,tilt_angle_deg,angular_rate_norm_radps
+near_ground_touchdown,False,hard_touchdown,-4.111330373837729,0.04757923781834176,0.12305233875939532,0.0862410099898698,0.002036164760724194
+brake_floor,False,hard_touchdown,-4.068769895163153,0.0447386886327039,0.1073727153598868,0.08795799925296398,0.0020683951798125453

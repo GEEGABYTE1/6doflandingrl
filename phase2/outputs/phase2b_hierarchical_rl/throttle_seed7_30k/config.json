@@ -1,0 +1,46 @@
+{
+  "ppo_profile": "baseline_default",
+  "ppo_profile_config": {
+    "batch_size": 256,
+    "ent_coef": 0.005,
+    "gae_lambda": 0.98,
+    "gamma": 0.995,
+    "learning_rate": 0.0003,
+    "linear_schedule": false,
+    "n_steps": 2048,
+    "name": "baseline_default"
+  },
+  "scenario": "nominal",
+  "seed": 7,
+  "throttle_env_config": {
+    "altitude_scale_m": 150.0,
+    "dt_s": 0.05,
+    "max_duration_s": 25.0,
+    "randomize_reset": true,
+    "reward_weights": {
+      "altitude_progress": 0.08,
+      "divergence_penalty": 250.0,
+      "success_bonus": 250.0,
+      "terminal_vertical_speed": 8.0,
+      "throttle_effort": 0.03,
+      "timeout_penalty": 150.0,
+      "touchdown_failure_penalty": 180.0,
+      "vertical_speed": 1.1
+    },
+    "scenario_name": "nominal",
+    "success_criteria": {
+      "max_angular_rate_radps": 0.5,
+      "max_final_altitude_m": 0.05,
+      "max_horizontal_speed_mps": 1.0,
+      "max_lateral_error_m": 2.0,
+      "max_position_norm_m": 10000.0,
+      "max_saturation_fraction": 0.35,
+      "max_speed_norm_mps": 1000.0,
+      "max_tilt_deg": 10.0,
+      "max_vertical_speed_mps": 2.0,
+      "min_fuel_margin_kg": 1.0
+    },
+    "vertical_speed_scale_mps": 40.0
+  },
+  "total_timesteps": 30000
+}

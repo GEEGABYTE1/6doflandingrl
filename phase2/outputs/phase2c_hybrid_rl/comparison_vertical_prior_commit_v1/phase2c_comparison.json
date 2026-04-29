@@ -1,0 +1,22 @@
+[
+  {
+    "angular_rate_norm_radps": 0.003761813299348876,
+    "failure_modes": "hard_touchdown",
+    "horizontal_touchdown_velocity_mps": 0.0704301342525781,
+    "label": "baseline",
+    "landing_position_error_m": 0.15568399827253973,
+    "success": false,
+    "tilt_angle_deg": 0.2448164324569013,
+    "vertical_touchdown_velocity_mps": -10.944352903477505
+  },
+  {
+    "angular_rate_norm_radps": 0.0026651226622129583,
+    "failure_modes": "hard_touchdown",
+    "horizontal_touchdown_velocity_mps": 0.04584111398614158,
+    "label": "touchdown_gate_commit",
+    "landing_position_error_m": 0.12034939935026998,
+    "success": false,
+    "tilt_angle_deg": 0.15286033224684564,
+    "vertical_touchdown_velocity_mps": -8.482277687648994
+  }
+]

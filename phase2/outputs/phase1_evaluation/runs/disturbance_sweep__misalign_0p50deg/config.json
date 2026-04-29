@@ -1,0 +1,54 @@
+{
+  "group": "disturbance_sweep",
+  "run_id": "disturbance_sweep__misalign_0p50deg",
+  "scenario": {
+    "description": "Disturbance sweep fixed thrust misalignment 0.50 deg.",
+    "dt_s": 0.02,
+    "duration_s": 45.0,
+    "gust_frequency_hz": 0.08,
+    "gust_mps": [
+      0.0,
+      0.0,
+      0.0
+    ],
+    "initial_attitude_error_deg": [
+      2.0,
+      -1.5,
+      0.5
+    ],
+    "initial_mass_kg": 1250.0,
+    "initial_position_m": [
+      12.0,
+      -8.0,
+      120.0
+    ],
+    "initial_velocity_mps": [
+      -1.0,
+      0.6,
+      -18.0
+    ],
+    "misalignment_deg": [
+      0.5,
+      -0.5
+    ],
+    "name": "misalign_0p50deg",
+    "wind_mps": [
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "seed": 7,
+  "success_criteria": {
+    "max_angular_rate_radps": 0.5,
+    "max_final_altitude_m": 0.05,
+    "max_horizontal_speed_mps": 1.0,
+    "max_lateral_error_m": 2.0,
+    "max_position_norm_m": 10000.0,
+    "max_saturation_fraction": 0.35,
+    "max_speed_norm_mps": 1000.0,
+    "max_tilt_deg": 10.0,
+    "max_vertical_speed_mps": 2.0,
+    "min_fuel_margin_kg": 1.0
+  }
+}

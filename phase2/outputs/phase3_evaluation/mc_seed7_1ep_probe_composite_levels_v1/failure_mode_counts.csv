@@ -1,0 +1,40 @@
+controller_id,controller_label,controller_type,disturbance_level,disturbance_index,failure_mode,count
+phase1_lqr,Phase 1 LQR,gain_scheduled_lqr,level_0,0,none,1
+phase1_lqr,Phase 1 LQR,gain_scheduled_lqr,level_1,1,none,1
+phase1_lqr,Phase 1 LQR,gain_scheduled_lqr,level_2,2,none,1
+phase1_lqr,Phase 1 LQR,gain_scheduled_lqr,level_3,3,none,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_0,0,hard_touchdown,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_0,0,horizontal_speed,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_0,0,lateral_miss,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_1,1,hard_touchdown,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_1,1,horizontal_speed,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_1,1,lateral_miss,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_2,2,hard_touchdown,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_2,2,horizontal_speed,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_2,2,lateral_miss,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_2,2,tilt_over,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_3,3,hard_touchdown,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_3,3,horizontal_speed,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_3,3,lateral_miss,1
+phase2a_flat_ppo,Phase 2A Flat PPO,flat_ppo,level_3,3,tilt_over,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_0,0,hard_touchdown,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_0,0,horizontal_speed,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_0,0,lateral_miss,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_1,1,hard_touchdown,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_1,1,horizontal_speed,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_1,1,lateral_miss,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_1,1,tilt_over,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_2,2,excess_angular_rate,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_2,2,hard_touchdown,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_2,2,horizontal_speed,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_2,2,lateral_miss,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_2,2,tilt_over,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_3,3,excess_angular_rate,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_3,3,hard_touchdown,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_3,3,horizontal_speed,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_3,3,lateral_miss,1
+phase2b_hierarchical_ppo,Phase 2B Hierarchical PPO,hierarchical_ppo,level_3,3,tilt_over,1
+phase2c_hybrid_ppo,Phase 2C Hybrid PPO,hybrid_residual_ppo,level_0,0,none,1
+phase2c_hybrid_ppo,Phase 2C Hybrid PPO,hybrid_residual_ppo,level_1,1,none,1
+phase2c_hybrid_ppo,Phase 2C Hybrid PPO,hybrid_residual_ppo,level_2,2,none,1
+phase2c_hybrid_ppo,Phase 2C Hybrid PPO,hybrid_residual_ppo,level_3,3,hard_touchdown,1

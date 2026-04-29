@@ -1,0 +1,8 @@
+failure_mode,count,definition
+excess_angular_rate,2,Touchdown angular-rate norm exceeded threshold.
+hard_touchdown,2,Vertical touchdown speed exceeded threshold.
+horizontal_speed,2,Horizontal touchdown speed exceeded threshold.
+lateral_miss,1,Landing position error exceeded threshold.
+none,20,Scenario met all configured touchdown criteria.
+saturation_driven_instability,2,Throttle or gimbal saturation persisted too often.
+tilt_over,2,Touchdown tilt angle exceeded threshold.

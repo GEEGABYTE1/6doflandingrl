@@ -1,0 +1,9 @@
+{
+  "controller_type": "hybrid_residual_ppo",
+  "dt_s": 0.05,
+  "max_duration_s": 30.0,
+  "residual_model": "outputs/phase2c_hybrid_rl/sweep_overspeed_assist_v1/overspeed_assist_sweep_late_extra/train/model.zip",
+  "scenario": "nominal",
+  "seed": 7,
+  "throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_40k_touchdown_gate_commit_v1/model.zip"
+}

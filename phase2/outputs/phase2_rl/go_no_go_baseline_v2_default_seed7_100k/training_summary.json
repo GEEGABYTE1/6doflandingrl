@@ -1,0 +1,9 @@
+{
+  "curriculum_enabled": true,
+  "model_path": "outputs/phase2_rl/go_no_go_baseline_v2_default_seed7_100k/model.zip",
+  "ppo_profile": "baseline_default",
+  "reward_profile": "baseline_v2",
+  "seed": 7,
+  "staged_wind_enabled": true,
+  "total_timesteps": 100000
+}

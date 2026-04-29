@@ -1,0 +1,7 @@
+{
+  "model_path": "outputs/phase2b_hierarchical_rl/throttle_seed7_30k_soft_landing_v1/model.zip",
+  "ppo_profile": "baseline_default",
+  "reward_profile": "soft_landing_v1",
+  "seed": 7,
+  "total_timesteps": 30000
+}

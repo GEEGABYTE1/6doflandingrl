@@ -1,0 +1,44 @@
+{
+  "metric_keys": [
+    "vertical_touchdown_velocity_mps",
+    "horizontal_touchdown_velocity_mps",
+    "landing_position_error_m",
+    "tilt_angle_deg",
+    "success"
+  ],
+  "runs": {
+    "untuned_50k": {
+      "vertical_touchdown_velocity_mps": -26.356171836326503,
+      "horizontal_touchdown_velocity_mps": 1.5598540724737593,
+      "landing_position_error_m": 14.629612928073767,
+      "tilt_angle_deg": 12.633195986919132,
+      "success": false
+    },
+    "tuned_v1_50k": {
+      "vertical_touchdown_velocity_mps": -20.06102676700235,
+      "horizontal_touchdown_velocity_mps": 8.374337464918552,
+      "landing_position_error_m": 33.430352679297165,
+      "tilt_angle_deg": 4.731389180562232,
+      "success": false
+    },
+    "tuned_v2_50k": {
+      "vertical_touchdown_velocity_mps": -26.116213622205823,
+      "horizontal_touchdown_velocity_mps": 1.6133484415725476,
+      "landing_position_error_m": 12.18845367877507,
+      "tilt_angle_deg": 4.551158673935833,
+      "success": false
+    },
+    "tuned_v2_100k": {
+      "vertical_touchdown_velocity_mps": -25.15164235486632,
+      "horizontal_touchdown_velocity_mps": 13.645481567623804,
+      "landing_position_error_m": 23.922188087995746,
+      "tilt_angle_deg": 3.585100445156503,
+      "success": false
+    }
+  },
+  "gate_result": {
+    "tuned_v2_50k_improved_vs_untuned_50k": true,
+    "tuned_v2_100k_improved_vs_tuned_v2_50k": false,
+    "recommended_next_step": "Tune again before any longer training or multi-seed evaluation."
+  }
+}

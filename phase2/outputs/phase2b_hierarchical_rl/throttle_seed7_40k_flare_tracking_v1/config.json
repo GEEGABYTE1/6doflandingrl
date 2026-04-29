@@ -1,0 +1,53 @@
+{
+  "ppo_profile": "baseline_default",
+  "ppo_profile_config": {
+    "batch_size": 256,
+    "ent_coef": 0.005,
+    "gae_lambda": 0.98,
+    "gamma": 0.995,
+    "learning_rate": 0.0003,
+    "linear_schedule": false,
+    "n_steps": 2048,
+    "name": "baseline_default"
+  },
+  "reward_profile": "flare_tracking_v1",
+  "scenario": "nominal",
+  "seed": 7,
+  "throttle_env_config": {
+    "altitude_scale_m": 150.0,
+    "braking_accel_mps2": 1.5,
+    "dt_s": 0.05,
+    "max_duration_s": 25.0,
+    "randomize_reset": true,
+    "reward_weights": {
+      "altitude_progress": 0.04,
+      "divergence_penalty": 260.0,
+      "low_altitude_vertical_speed": 2.8,
+      "success_bonus": 340.0,
+      "terminal_vertical_speed": 16.0,
+      "throttle_effort": 0.01,
+      "throttle_rate": 0.08,
+      "timeout_penalty": 160.0,
+      "touchdown_failure_penalty": 220.0,
+      "vertical_speed": 0.7,
+      "vertical_tracking": 2.2
+    },
+    "scenario_name": "nominal",
+    "success_criteria": {
+      "max_angular_rate_radps": 0.5,
+      "max_final_altitude_m": 0.05,
+      "max_horizontal_speed_mps": 1.0,
+      "max_lateral_error_m": 2.0,
+      "max_position_norm_m": 10000.0,
+      "max_saturation_fraction": 0.35,
+      "max_speed_norm_mps": 1000.0,
+      "max_tilt_deg": 10.0,
+      "max_vertical_speed_mps": 2.0,
+      "min_fuel_margin_kg": 1.0
+    },
+    "terminal_descent_rate_mps": 0.8,
+    "throttle_delta_limit": 0.35,
+    "vertical_speed_scale_mps": 40.0
+  },
+  "total_timesteps": 40000
+}

@@ -1,0 +1,42 @@
+[
+  {
+    "angular_rate_norm_radps": 0.0020147799992194975,
+    "failure_modes": "hard_touchdown",
+    "horizontal_touchdown_velocity_mps": 0.04870281430497958,
+    "label": "overspeed_assist_focus_baseline",
+    "landing_position_error_m": 0.12126235371432138,
+    "success": false,
+    "tilt_angle_deg": 0.08732830005690002,
+    "vertical_touchdown_velocity_mps": -4.2630345536657055
+  },
+  {
+    "angular_rate_norm_radps": 0.002027460069620925,
+    "failure_modes": "hard_touchdown",
+    "horizontal_touchdown_velocity_mps": 0.04856423911345107,
+    "label": "overspeed_assist_focus_higher_extra",
+    "landing_position_error_m": 0.12138092366568934,
+    "success": false,
+    "tilt_angle_deg": 0.08681907489121546,
+    "vertical_touchdown_velocity_mps": -4.168492311257423
+  },
+  {
+    "angular_rate_norm_radps": 0.002016283604707792,
+    "failure_modes": "hard_touchdown",
+    "horizontal_touchdown_velocity_mps": 0.0486443890876184,
+    "label": "overspeed_assist_focus_higher_subzone",
+    "landing_position_error_m": 0.12139940385273987,
+    "success": false,
+    "tilt_angle_deg": 0.08695369126807356,
+    "vertical_touchdown_velocity_mps": -4.219211068947784
+  },
+  {
+    "angular_rate_norm_radps": 0.002028383481658012,
+    "failure_modes": "hard_touchdown",
+    "horizontal_touchdown_velocity_mps": 0.048505168939380776,
+    "label": "overspeed_assist_focus_blended",
+    "landing_position_error_m": 0.1214814363546394,
+    "success": false,
+    "tilt_angle_deg": 0.08636230438211524,
+    "vertical_touchdown_velocity_mps": -4.113545932795983
+  }
+]

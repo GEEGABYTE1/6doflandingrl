@@ -1,0 +1,20 @@
+{
+  "action_mode": "tvc_only",
+  "curriculum_enabled": true,
+  "curriculum_profile": "baseline_v1",
+  "enable_overspeed_brake_assist": true,
+  "include_prior_throttle_feature": false,
+  "model_path": "outputs/phase2c_hybrid_rl/residual_seed7_50k_overspeed_assist_v2/model.zip",
+  "overspeed_brake_assist_full_scale": 3.0,
+  "overspeed_brake_assist_max_delta": 0.16,
+  "overspeed_brake_assist_trigger": 0.25,
+  "ppo_profile": "baseline_default",
+  "reward_profile": "vertical_focus_v1",
+  "seed": 7,
+  "staged_wind_enabled": true,
+  "terminal_throttle_gate_altitude": 22.0,
+  "terminal_throttle_gate_power": 1.5,
+  "throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_40k_touchdown_gate_commit_v1/model.zip",
+  "throttle_residual_positive_only": false,
+  "total_timesteps": 50000
+}

@@ -1,0 +1,5 @@
+{
+  "model_path": "outputs/phase2_rl/smoke_seed7/model.zip",
+  "seed": 7,
+  "total_timesteps": 5000
+}

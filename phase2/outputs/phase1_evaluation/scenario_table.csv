@@ -1,0 +1,10 @@
+scenario,description,initial_mass_kg,initial_position_m,initial_velocity_mps,wind_mps,gust_mps,misalignment_deg
+nominal,Nominal descent with mild wind and thrust bias.,1250.0,"(12.0, -8.0, 120.0)","(-1.0, 0.6, -18.0)","(1.5, -0.5, 0.0)","(0.4, 0.2, 0.0)","(0.15, -0.1)"
+heavy,Heavier initial mass near upper fuel state.,1350.0,"(12.0, -8.0, 120.0)","(-1.0, 0.6, -18.0)","(1.5, -0.5, 0.0)","(0.4, 0.2, 0.0)","(0.15, -0.1)"
+light,Lower initial fuel state with reduced touchdown margin.,950.0,"(12.0, -8.0, 120.0)","(-1.0, 0.6, -18.0)","(1.5, -0.5, 0.0)","(0.4, 0.2, 0.0)","(0.15, -0.1)"
+crosswind,Persistent crosswind from inertial +x.,1250.0,"(12.0, -8.0, 120.0)","(-1.0, 0.6, -18.0)","(5.0, 0.0, 0.0)","(0.0, 0.0, 0.0)","(0.15, -0.1)"
+gust,Sinusoidal gusting wind in lateral axes.,1250.0,"(12.0, -8.0, 120.0)","(-1.0, 0.6, -18.0)","(2.0, -1.0, 0.0)","(2.0, 1.0, 0.0)","(0.15, -0.1)"
+misalignment,One-degree fixed thrust misalignment.,1250.0,"(12.0, -8.0, 120.0)","(-1.0, 0.6, -18.0)","(1.5, -0.5, 0.0)","(0.4, 0.2, 0.0)","(1.0, -1.0)"
+high_lateral_offset,Large initial lateral miss distance.,1250.0,"(35.0, -25.0, 120.0)","(-1.0, 0.6, -18.0)","(1.5, -0.5, 0.0)","(0.4, 0.2, 0.0)","(0.15, -0.1)"
+high_descent_rate,Initial vertical speed faster than nominal.,1250.0,"(12.0, -8.0, 120.0)","(-1.0, 0.6, -24.0)","(1.5, -0.5, 0.0)","(0.4, 0.2, 0.0)","(0.15, -0.1)"
+combined_off_nominal,"Combined mass, wind, misalignment, and lateral offset challenge.",1325.0,"(30.0, -20.0, 130.0)","(-1.5, 1.0, -22.0)","(6.0, -2.0, 0.0)","(1.5, 1.0, 0.0)","(0.75, -0.75)"

@@ -1,0 +1,29 @@
+{
+  "phase1_lqr": {
+    "failure_modes": "none",
+    "horizontal_touchdown_velocity_mps": 0.04010331709429201,
+    "landing_position_error_m": 0.047026087539138284,
+    "success": true,
+    "termination_reason": "touchdown",
+    "tilt_angle_deg": 0.11121061354571216,
+    "vertical_touchdown_velocity_mps": -0.6542858510416673
+  },
+  "phase2a_flat_ppo": {
+    "failure_modes": "hard_touchdown;horizontal_speed;lateral_miss",
+    "horizontal_touchdown_velocity_mps": 1.6133698520864697,
+    "landing_position_error_m": 12.18792647773572,
+    "success": false,
+    "termination_reason": "touchdown",
+    "tilt_angle_deg": 4.551059253765473,
+    "vertical_touchdown_velocity_mps": -26.115896684772785
+  },
+  "phase2b_hierarchical_ppo": {
+    "failure_modes": "hard_touchdown;horizontal_speed;lateral_miss;tilt_over",
+    "horizontal_touchdown_velocity_mps": 8.95207603337428,
+    "landing_position_error_m": 31.151358949459087,
+    "success": false,
+    "termination_reason": "touchdown",
+    "tilt_angle_deg": 10.787785612875158,
+    "vertical_touchdown_velocity_mps": -11.94294474773511
+  }
+}

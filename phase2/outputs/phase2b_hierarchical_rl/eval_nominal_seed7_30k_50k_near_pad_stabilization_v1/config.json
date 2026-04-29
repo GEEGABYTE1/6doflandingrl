@@ -1,0 +1,9 @@
+{
+  "controller_type": "hierarchical_ppo",
+  "dt_s": 0.05,
+  "max_duration_s": 30.0,
+  "scenario": "nominal",
+  "seed": 7,
+  "throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_30k/model.zip",
+  "tvc_model": "outputs/phase2b_hierarchical_rl/tvc_seed7_50k_near_pad_stabilization_v1/model.zip"
+}

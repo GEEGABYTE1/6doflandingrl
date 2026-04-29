@@ -1,0 +1,6 @@
+{
+  "curriculum_enabled": true,
+  "model_path": "outputs/phase2_rl/curriculum_smoke_seed7/model.zip",
+  "seed": 7,
+  "total_timesteps": 5000
+}

@@ -1,0 +1,38 @@
+[
+  {
+    "horizontal_touchdown_velocity_mps": 1.6133698520864697,
+    "landing_position_error_m": 12.18792647773572,
+    "ppo_profile": "baseline_default",
+    "reward_profile": "baseline_v2",
+    "run_id": "eval_go_no_go_baseline_v2_default_seed7_50k",
+    "success": false,
+    "termination_reason": "touchdown",
+    "tilt_angle_deg": 4.551059253765473,
+    "vertical_touchdown_velocity_mps": -26.115896684772785,
+    "violation_score": 21.220387358717268
+  },
+  {
+    "horizontal_touchdown_velocity_mps": 12.136570950120639,
+    "landing_position_error_m": 29.912153260271896,
+    "ppo_profile": "short_rollout_low_entropy",
+    "reward_profile": "baseline_v2",
+    "run_id": "eval_go_no_go_baseline_v2_short_rollout_low_entropy_seed7_50k",
+    "success": false,
+    "termination_reason": "touchdown",
+    "tilt_angle_deg": 39.721816393718946,
+    "vertical_touchdown_velocity_mps": -32.112991227699,
+    "violation_score": 47.121324833477985
+  },
+  {
+    "horizontal_touchdown_velocity_mps": 20.186174318080873,
+    "landing_position_error_m": 43.094618020470094,
+    "ppo_profile": "short_rollout_low_entropy_linear_lr",
+    "reward_profile": "baseline_v2",
+    "run_id": "eval_go_no_go_baseline_v2_short_rollout_low_entropy_linear_lr_seed7_50k",
+    "success": false,
+    "termination_reason": "touchdown",
+    "tilt_angle_deg": 25.013161074998855,
+    "vertical_touchdown_velocity_mps": -22.508503634752106,
+    "violation_score": 55.48905125319186
+  }
+]

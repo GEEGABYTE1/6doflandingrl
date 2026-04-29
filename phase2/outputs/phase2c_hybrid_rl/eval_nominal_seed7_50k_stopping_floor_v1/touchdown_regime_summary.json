@@ -1,0 +1,15 @@
+{
+  "final_vz_ref_mps": -0.8,
+  "max_abs_vertical_tracking_error_mps": 2.38572125668546,
+  "max_horizontal_speed_mps": 0.06390487474218509,
+  "max_throttle_rate_per_s": 1.2996226154598212,
+  "max_tilt_deg": 0.1329659471862969,
+  "mean_horizontal_speed_mps": 0.049495551363258165,
+  "mean_throttle": 0.9337177078708441,
+  "mean_tilt_deg": 0.09990689556365345,
+  "mean_vertical_tracking_error_mps": -1.7395139993536528,
+  "samples": 21,
+  "time_end_s": 9.25,
+  "time_start_s": 8.25,
+  "window_s": 1.0
+}

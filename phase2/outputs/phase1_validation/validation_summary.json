@@ -1,0 +1,14 @@
+{
+  "dt_values": [
+    0.04,
+    0.02,
+    0.01
+  ],
+  "gimbal_limits_respected": true,
+  "mass_floor_respected": true,
+  "max_quaternion_norm_error": 2.220446049250313e-16,
+  "nominal_reproducible": true,
+  "seed": 7,
+  "throttle_limits_respected": true,
+  "timestep_convergence_trend": true
+}

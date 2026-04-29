@@ -1,0 +1,353 @@
+[
+  {
+    "controller_id": "phase1_lqr",
+    "controller_label": "Phase 1 LQR",
+    "controller_type": "gain_scheduled_lqr",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "none"
+  },
+  {
+    "controller_id": "phase1_lqr",
+    "controller_label": "Phase 1 LQR",
+    "controller_type": "gain_scheduled_lqr",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "none"
+  },
+  {
+    "controller_id": "phase1_lqr",
+    "controller_label": "Phase 1 LQR",
+    "controller_type": "gain_scheduled_lqr",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "none"
+  },
+  {
+    "controller_id": "phase1_lqr",
+    "controller_label": "Phase 1 LQR",
+    "controller_type": "gain_scheduled_lqr",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "none"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "tilt_over"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2a_flat_ppo",
+    "controller_label": "Phase 2A Flat PPO",
+    "controller_type": "flat_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "tilt_over"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "tilt_over"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "excess_angular_rate"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "tilt_over"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "excess_angular_rate"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "hard_touchdown"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "horizontal_speed"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "lateral_miss"
+  },
+  {
+    "controller_id": "phase2b_hierarchical_ppo",
+    "controller_label": "Phase 2B Hierarchical PPO",
+    "controller_type": "hierarchical_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "tilt_over"
+  },
+  {
+    "controller_id": "phase2c_hybrid_ppo",
+    "controller_label": "Phase 2C Hybrid PPO",
+    "controller_type": "hybrid_residual_ppo",
+    "count": 1,
+    "disturbance_index": 0,
+    "disturbance_level": "level_0",
+    "failure_mode": "none"
+  },
+  {
+    "controller_id": "phase2c_hybrid_ppo",
+    "controller_label": "Phase 2C Hybrid PPO",
+    "controller_type": "hybrid_residual_ppo",
+    "count": 1,
+    "disturbance_index": 1,
+    "disturbance_level": "level_1",
+    "failure_mode": "none"
+  },
+  {
+    "controller_id": "phase2c_hybrid_ppo",
+    "controller_label": "Phase 2C Hybrid PPO",
+    "controller_type": "hybrid_residual_ppo",
+    "count": 1,
+    "disturbance_index": 2,
+    "disturbance_level": "level_2",
+    "failure_mode": "none"
+  },
+  {
+    "controller_id": "phase2c_hybrid_ppo",
+    "controller_label": "Phase 2C Hybrid PPO",
+    "controller_type": "hybrid_residual_ppo",
+    "count": 1,
+    "disturbance_index": 3,
+    "disturbance_level": "level_3",
+    "failure_mode": "hard_touchdown"
+  }
+]

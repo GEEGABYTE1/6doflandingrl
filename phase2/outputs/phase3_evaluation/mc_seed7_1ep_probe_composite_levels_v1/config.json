@@ -1,0 +1,105 @@
+{
+  "controllers": [
+    "phase1_lqr",
+    "phase2a_flat_ppo",
+    "phase2b_hierarchical_ppo",
+    "phase2c_hybrid_ppo"
+  ],
+  "disturbance_levels": [
+    {
+      "gust_mps": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "index": 0,
+      "misalignment_deg": [
+        0.0,
+        0.0
+      ],
+      "name": "level_0",
+      "wind_mps": [
+        0.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "gust_mps": [
+        0.5,
+        0.25,
+        0.0
+      ],
+      "index": 1,
+      "misalignment_deg": [
+        0.2,
+        -0.2
+      ],
+      "name": "level_1",
+      "wind_mps": [
+        2.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "gust_mps": [
+        1.0,
+        0.5,
+        0.0
+      ],
+      "index": 2,
+      "misalignment_deg": [
+        0.5,
+        -0.5
+      ],
+      "name": "level_2",
+      "wind_mps": [
+        5.0,
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "gust_mps": [
+        1.5,
+        0.75,
+        0.0
+      ],
+      "index": 3,
+      "misalignment_deg": [
+        1.0,
+        -1.0
+      ],
+      "name": "level_3",
+      "wind_mps": [
+        8.0,
+        0.0,
+        0.0
+      ]
+    }
+  ],
+  "dt_s": 0.05,
+  "episodes_per_level": 1,
+  "max_duration_s": 30.0,
+  "metric_definitions": {
+    "angular_rate_norm_radps": "Touchdown body-rate vector norm in rad/s.",
+    "duration_s": "Elapsed rollout duration in seconds.",
+    "failure_modes": "Semicolon-delimited failure taxonomy labels from the shared touchdown metric function.",
+    "fuel_used_kg": "Initial vehicle mass minus final vehicle mass in kilograms.",
+    "horizontal_touchdown_velocity_mps": "Horizontal touchdown speed magnitude in m/s.",
+    "landing_position_error_m": "Euclidean lateral landing error at touchdown in meters.",
+    "success_rate": "Fraction of evaluated episodes satisfying all touchdown success criteria.",
+    "termination_reason": "Terminal rollout status such as touchdown, timeout, or divergence.",
+    "tilt_angle_deg": "Touchdown tilt angle between body +z and inertial +z in degrees.",
+    "touchdown_detected": "Whether the rollout ended by ground contact rather than timeout/divergence.",
+    "touchdown_speed_mps": "Total touchdown speed magnitude in m/s.",
+    "vertical_touchdown_velocity_mps": "Signed vertical touchdown velocity in m/s; negative is downward."
+  },
+  "phase2a_model": "outputs/phase2_rl/go_no_go_baseline_v2_default_seed7_50k/model.zip",
+  "phase2b_throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_40k_flare_tracking_v1/model.zip",
+  "phase2b_tvc_model": "outputs/phase2b_hierarchical_rl/tvc_seed7_50k_flare_tracking_v1/model.zip",
+  "phase2c_residual_model": "outputs/phase2c_hybrid_rl/residual_seed7_50k_stopping_floor_v1/model.zip",
+  "phase2c_throttle_model": "outputs/phase2b_hierarchical_rl/throttle_seed7_40k_touchdown_gate_commit_v1/model.zip",
+  "seed": 7
+}
