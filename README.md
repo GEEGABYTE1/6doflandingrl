@@ -238,5 +238,3 @@ Every major run writes structured artifacts under `outputs/<phase>/<run_name>/`:
 - `metrics.json` or `eval_metrics.json` records touchdown metrics and failure modes.
 - comparison scripts write CSV and JSON tables.
 - plotting scripts consume saved CSV/JSON artifacts rather than rerunning training or controller rollouts.
-
-Keep `design_decisions.md`, `paper_log.md`, and `plots_manifest.md` updated whenever modeling assumptions, experiment results, or figures change.
